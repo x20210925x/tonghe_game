@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#151715" />
+    <title>砼核 · Concrete Core</title>
+    <link rel="icon" href="../assets/mark.svg" />
+    <link rel="preload" href="../assets/spillway.webp" as="image" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="icon-mark" viewBox="0 0 40 38">
+        <path
+          fill="currentColor"
+          d="M2 30.5 11.6 7.2l6.4-3.7-9.3 23.8 6.2 3.6-2.4 6.1zM14 26.5l9-22.8 6.1 3.6-8.5 21.6 6.3 3.6-2 5.1zM25.2 25.8l6.4-16.2 6.1 3.5-6.3 16.3z"
+        />
+      </symbol>
+      <symbol id="icon-sound" viewBox="0 0 24 24">
+        <path d="M3 9h4l5-4v14l-5-4H3zM16 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" />
+      </symbol>
+      <symbol id="icon-mute" viewBox="0 0 24 24">
+        <path d="M3 9h4l5-4v14l-5-4H3zM16 9l6 6m0-6-6 6" />
+      </symbol>
+      <symbol id="icon-full" viewBox="0 0 24 24">
+        <path d="M3 9V3h6m6 0h6v6m0 6v6h-6m-6 0H3v-6" />
+      </symbol>
+      <symbol id="icon-keyboard" viewBox="0 0 24 24">
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <path d="M5 9h1m2 0h1m2 0h1m2 0h1m2 0h1M5 12h1m2 0h1m2 0h1m2 0h1m2 0h1M8 15h8" />
+      </symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24">
+        <path d="M3 7h6m4 0h8M3 17h11m4 0h3" />
+        <circle cx="11" cy="7" r="2" />
+        <circle cx="16" cy="17" r="2" />
+      </symbol>
+      <symbol id="icon-headphones" viewBox="0 0 24 24">
+        <path d="M4 15v-3a8 8 0 0 1 16 0v3" />
+        <rect x="3" y="12" width="4.5" height="8" rx="2" />
+        <rect x="16.5" y="12" width="4.5" height="8" rx="2" />
+      </symbol>
+      <symbol id="icon-pin" viewBox="0 0 24 24">
+        <path d="M18.5 10c0 4.3-6.5 11-6.5 11S5.5 14.3 5.5 10a6.5 6.5 0 1 1 13 0Z" />
+        <circle cx="12" cy="10" r="2" />
+      </symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M8 5v14m8-14v14" stroke-width="3" /></symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19" /></symbol>
+    </svg>
+    <main id="app">
+      <section id="title-screen" aria-label="主菜单">
+        <div class="keyart"></div>
+        <div class="art-shade"></div>
+        <header class="masthead">
+          <div class="brand">
+            <svg class="brandmark"><use href="#icon-mark" /></svg><span>巨构档案</span><i></i
+            ><span class="brand-en">MEGASTRUCTURE<br />ARCHIVE</span>
+          </div>
+          <div class="utilities">
+            <button
+              id="audio-button"
+              class="icon-btn audio-icon"
+              title="切换环境音"
+              aria-label="切换环境音"
+            >
+              <svg><use href="#icon-sound" /></svg></button
+            ><button id="full-button" class="icon-btn" title="全屏显示" aria-label="全屏显示">
+              <svg><use href="#icon-full" /></svg>
+            </button>
+          </div>
+        </header>
+        <div class="title-block">
+          <div class="genre"><span class="signal"></span>第三人称探索游戏</div>
+          <h1>砼核</h1>
+          <div class="english-title" lang="en">CONCRETE CORE</div>
+          <p class="synopsis">穿过沉默的泄洪廊，重启巨构深处的升降井。</p>
+          <button id="start" class="start-button">
+            <span class="play-triangle"></span><span id="start-label">开始巡检</span
+            ><kbd>ENTER <b>↵</b></kbd>
+          </button>
+          <div class="menu-links">
+            <button id="guide">
+              <svg><use href="#icon-keyboard" /></svg>操作指南</button
+            ><span></span
+            ><button id="settings">
+              <svg><use href="#icon-settings" /></svg>系统设置
+            </button>
+          </div>
+        </div>
+        <aside class="sector" aria-label="泄洪廊建筑剖面">
+          <div class="section-drawing" aria-hidden="true">
+            <svg viewBox="0 0 250 89" fill="none">
+              <defs>
+                <pattern id="hatch" width="4" height="4" patternUnits="userSpaceOnUse">
+                  <path d="M0 4 4 0" stroke="currentColor" stroke-width=".5" />
+                </pattern>
+              </defs>
+              <g stroke="currentColor" stroke-width=".95">
+                <path d="M7 73h232M15 79h211m-205-6v9m199-9v9" opacity=".42" />
+                <path d="m37 62 21-10V15l10-4v39c3 12 13 16 33 16l-13 6H38Z" fill="url(#hatch)" />
+                <path
+                  d="M38 62V22l20-8m-20 8 10-4v34c2 12 16 19 40 20M48 18l20-7M69 57l15-6M83 65l15-6"
+                />
+                <path d="m93 56 20-9V13l9-4v36c3 11 12 15 30 15l-12 6H94Z" fill="url(#hatch)" />
+                <path d="M94 56V20l19-8m-19 8 9-4v31c2 11 15 18 37 19M103 16l19-7" />
+                <path d="m145 50 17-8V11l8-3v32c3 10 11 14 29 14l-11 5h-42Z" fill="url(#hatch)" />
+                <path d="M146 50V18l16-7m-16 7 8-3v28c2 10 14 16 34 16M154 15l16-7" />
+                <path d="m188 44 16-7V10l7-3v28c2 9 10 12 24 12l-9 5h-37Z" opacity=".55" />
+                <path d="M189 44V16l15-6m-15 6 7-3v24c2 9 12 15 30 15" opacity=".55" />
+              </g>
+              <path d="M22 69h7m-3.5-3.5v7" stroke="#ff863f" stroke-width="1.7" />
+            </svg>
+          </div>
+          <div class="sector-label"><span>SECTOR 01</span><b></b>泄洪廊</div>
+        </aside>
+        <footer class="menu-footer">
+          <div class="chapter">
+            <span class="chapter-tick"></span><span class="mono">CH. 01</span><i></i
+            ><strong>巨构之下</strong>
+          </div>
+          <div class="headphone-tip">
+            <svg><use href="#icon-headphones" /></svg>佩戴耳机体验空间声场
+          </div>
+        </footer>
+      </section>
+      <section id="play-screen" hidden aria-label="实时三维巡检">
+        <div id="viewport"></div>
+        <div class="play-vignette"></div>
+        <header class="hud-top">
+          <div class="hud-name">
+            <svg class="brandmark"><use href="#icon-mark" /></svg>
+            <div><small id="area-code">SECTOR 01</small><b id="area-name">值班室</b></div>
+          </div>
+          <button id="pause-btn" class="icon-btn" aria-label="暂停">
+            <svg><use href="#icon-pause" /></svg>
+          </button>
+        </header>
+        <div id="objective">
+          <div class="micro">巡检目标</div>
+          <span id="objective-text"></span>
+        </div>
+        <div id="marker" hidden><i></i><span></span></div>
+        <button id="interaction" hidden><kbd>E</kbd><span></span></button>
+        <section id="valve-panel" class="machine-panel" aria-label="调节旁通阀" hidden>
+          <div class="instrument-title"><span>P–03</span><strong>旁通阀</strong></div>
+          <div class="valve-row">
+            <canvas id="pressure-face" width="256" height="256" aria-hidden="true"></canvas>
+            <div>
+              <small>管路压力</small><output id="pressure-reading">1.33 MPa</output>
+              <p>开大降压，关小升压。<br />将指针稳在绿色刻度内。</p>
+            </div>
+          </div>
+          <div class="instrument-controls">
+            <button id="valve-close"><kbd>A</kbd> 关小</button
+            ><button id="valve-open"><kbd>D</kbd> 开大</button>
+          </div>
+          <div id="pressure-stability"></div>
+        </section>
+        <section id="cart-panel" class="machine-panel" aria-label="检修轨车" hidden>
+          <div class="instrument-title"><span>M–04</span><strong>检修轨车</strong></div>
+          <div class="cart-readings">
+            <div><small>车速</small><output id="cart-speed"></output></div>
+            <div><small>距终点</small><output id="cart-range"></output></div>
+          </div>
+          <div class="instrument-controls">
+            <button id="traction"><kbd>W</kbd> 牵引</button><button id="brake"><kbd>S</kbd> 制动</button>
+          </div>
+        </section>
+        <div id="entry-tip">W A S D 移动　·　拖动鼠标环视</div>
+        <div id="zone-banner" aria-live="polite"></div>
+        <div id="touch-pad"><i></i></div>
+        <button id="touch-run" aria-label="切换慢跑">慢跑</button>
+        <div class="elevation"><span>EL.</span> <b id="height">+000.0</b> m</div>
+      </section>
+      <div id="veil" hidden>
+        <section id="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+          <div class="dialog-top">
+            <span class="micro" id="dialog-type"></span
+            ><button class="icon-btn" id="close" aria-label="关闭">
+              <svg><use href="#icon-close" /></svg>
+            </button>
+          </div>
+          <h2 id="dialog-title"></h2>
+          <div id="dialog-content"></div>
+        </section>
+      </div>
+      <div id="loading" hidden role="status">
+        <span class="loader"></span><span id="loading-label">正在进入值班室</span>
+      </div>
+    </main>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>

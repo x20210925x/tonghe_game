@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# Dependencies and logs
+node_modules/
+npm-debug.log*
+
+# Local Claude Code settings
+.claude/settings.local.json
