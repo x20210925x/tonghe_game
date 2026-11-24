@@ -4,7 +4,7 @@ import { STORM_BRIDGE, REFUGE, NORTH_DOOR, RESERVOIR } from './layout.js';
 
 // Metres per second the reservoir climbs with 0, 1, 2 and 3 gates open (the last drains it).
 // A shift at half the expected pace still reaches the third gate below the crest.
-export const RISE = [0.0095, 0.0062, 0.0034, -0.03];
+export const RISE = [0.0095, 0.0062, 0.0034, -0.07];
 export function riseRate(open) {
   const n = Math.max(0, Math.min(3, open)),
     i = Math.min(2, Math.floor(n));

@@ -17,6 +17,7 @@ import {
   JUNCTION,
   PANELS,
   RESERVOIR,
+  insideDam,
 } from '../game/layout.js';
 
 // Chapter two's ground: the north door of the core, the storm bridge and the north dam with its
@@ -95,9 +96,9 @@ function spillSheet(x0, x1) {
       side: T.DoubleSide,
       transparent: true,
       depthWrite: false,
-      uniforms: { flow: { value: 0 }, clock: { value: 0 } },
+      uniforms: { flow: { value: 0 }, clock: { value: 0 }, light: { value: 1 } },
       vertexShader: `varying vec2 st;void main(){st=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader: `varying vec2 st;uniform float flow,clock;
+      fragmentShader: `varying vec2 st;uniform float flow,clock,light;
       float h(vec2 p){return fract(sin(dot(p,vec2(91.3,217.9)))*43758.5);}
       float noise(vec2 p){vec2 i=floor(p),t=fract(p);t=t*t*(3.-2.*t);return mix(mix(h(i),h(i+vec2(1,0)),t.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),t.x),t.y);}
       void main(){
@@ -106,7 +107,8 @@ function spillSheet(x0, x1) {
         float aerated=smoothstep(${lip.toFixed(3)},${(lip + 0.5).toFixed(3)},st.y);
         float foam=smoothstep(.5-aerated*.35,.86,stripe);
         float edge=smoothstep(0.,.03,min(st.x,1.-st.x));
-        vec3 col=mix(vec3(.05,.085,.09),vec3(.72,.78,.78),foam);
+        // Foam is lit by the sky: dim at night, bright in a lightning flash.
+        vec3 col=mix(vec3(.05,.085,.09),vec3(.72,.78,.78),foam)*clamp(.12+.88*light,.12,1.4);
         gl_FragColor=vec4(col,flow*edge*(.5+.45*stripe)*(.55+.45*aerated));
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -514,6 +516,12 @@ export function buildDam(b) {
     return s;
   });
 
+  // One ceiling light follows the inspector through whichever room has power, so lit rooms
+  // read as lit without a light per lamp.
+  const roomLamp = new T.PointLight(0xffe2b8, 0, 15, 1.3);
+  scene.add(roomLamp);
+  let roomLevel = 0;
+
   const state = { door: 0, gates: [0, 0, 0], level: RESERVOIR.start };
   const flash = (t, rate = 2.4) => Math.sin(t * Math.PI * rate) > 0;
   const setLit = (list, on, lit = mat.strip) => {
@@ -522,7 +530,7 @@ export function buildDam(b) {
   const api = {
     shadowsDirty: false,
     state,
-    update(dt, time, site, camera) {
+    update(dt, time, site, camera, light = 1, body = null) {
       const ch2 = site.chapter === 2;
       // Door.
       const open = ch2 && site.has('ndoor') ? 1 : 0;
@@ -549,6 +557,7 @@ export function buildDam(b) {
         sheets[i].visible = flow > 0.01;
         sheets[i].material.uniforms.flow.value = flow;
         sheets[i].material.uniforms.clock.value = time;
+        sheets[i].material.uniforms.light.value = light;
       });
       for (const c of cables) {
         const leafTop = LEAF_LOW + GATE_SLOT.lift * state.gates[c.i] + (LEAF_HIGH - LEAF_LOW) + 0.3;
@@ -586,6 +595,22 @@ export function buildDam(b) {
       needle.rotation.z = 1.2 - 2.4 * T.MathUtils.clamp(site.pump ?? 0, 0, 1);
       lever.rotation.x = -0.25 - 0.55 * (site.stroke ?? 0);
       flood.visible = !reset;
+      let want = 0;
+      if (ch2 && body && insideDam(body.x, body.y, body.z)) {
+        const [w1, w2, w3] = H.walls;
+        if (body.y < 92) {
+          want = reset ? 0.8 : 0;
+          roomLamp.position.set(T.MathUtils.clamp(body.x, gx0 + 1, gx1 - 1), gTop - 0.35, (gz0 + gz1) / 2);
+        } else {
+          const [a, c, on] =
+            body.x < w1 ? [H.x0, w1, power ? 1 : 0] : body.x < w2 ? [w1, w2, reset ? 0.8 : 0] : body.x < w3 ? [w2, w3, reset ? 1 : 0] : [w3, H.x1, 0.4];
+          want = on;
+          roomLamp.position.set(T.MathUtils.clamp(body.x, a + 2, c - 2), hTop - 0.7, -475.2);
+        }
+      }
+      roomLevel = T.MathUtils.damp(roomLevel, want, 4, dt);
+      roomLamp.intensity = roomLevel * 55;
+      roomLamp.color.set(want < 0.5 && want > 0 ? 0xffb070 : 0xffe2b8);
     },
   };
   return api;

@@ -12,6 +12,7 @@ import { drawDial } from '../world/machines.js';
 import { CALL_PANELS } from '../world/coreworks.js';
 import { Site, BAND, HOLD_TIME } from './site.js';
 import { objective } from './quest.js';
+import { gustAt, windExposure, refugeBehind, GUST, PUMP } from './flood.js';
 import { ARCHIVES, archivesOf, chapterOf } from './lore.js';
 import * as L from './layout.js';
 
@@ -30,8 +31,15 @@ const CHECKPOINTS = [
   ['valve', [2, 0, -40, 0]],
   ['door', [0, 0, 0, 0]],
 ];
-// Chapter two's checkpoints, latest first. Its start is the control level.
-const CHECKPOINTS2 = [];
+// Chapter two's checkpoints, latest first: on the crest outside the last room worked, the
+// crest end of the bridge, or inside the north door. Its start is the control level.
+const CHECKPOINTS2 = [
+  ['g2', [103, 96, -470.5, -Math.PI / 2]],
+  ['junction', [91, 96, -470.5, -Math.PI / 2]],
+  ['g1', [80, 96, -470.5, -Math.PI / 2]],
+  ['crest', [67, 96, -469.5, -Math.PI / 2]],
+  ['ndoor', [65.5, 96, -298.5, 0]],
+];
 const spawnOf = (chapter) => {
   const s = chapter === 2 ? L.CH2_SPAWN : L.SPAWN;
   return [s.x, s.y, s.z, s.yaw];
@@ -94,6 +102,7 @@ export class Game {
     this.lastTime = 0;
     this.work = new T.Vector3();
     this.head = new T.Vector3();
+    this.rain = new T.Vector3();
     this.mode = 'walk';
     this.hud = {};
     this.moveYaw = null;
@@ -142,6 +151,10 @@ export class Game {
       this.input.tap('Space');
     });
     $('interaction').onclick = () => this.input.tap('KeyE');
+    $('pump-stroke').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.input.tap('KeyE');
+    });
     this.interactables = this.makeInteractables();
   }
 
@@ -166,6 +179,11 @@ export class Game {
     this.inside = undefined;
     this.lastTap = -1;
     this.moveYaw = null;
+    this.windClock = 0;
+    this.gust = gustAt(0);
+    this.exposed = 0;
+    this.failSpot = null;
+    this.fallSpot = null;
     this.player.setFlying(false);
     const spawn = spawnOf(this.chapter);
     this.player.place(...spawn);
@@ -259,6 +277,7 @@ export class Game {
       found: this.found(),
       total: archivesOf(this.chapter).length,
       height: this.maxHeight,
+      fails: this.site.fails,
     };
   }
   found() {
@@ -379,7 +398,71 @@ export class Game {
     add({
       pos: () => [L.RECORD.x, L.RECORD.y, L.RECORD.z - 1.1],
       r: 2.2,
-      label: () => !s.has('record') && '记录巡检',
+      label: () => s.chapter === 1 && !s.has('record') && '记录巡检',
+      act: () => this.finish(),
+    });
+
+    // ---------- Chapter two ----------
+    const ch2 = () => s.chapter === 2;
+    const front = (spot, d = 0.9) => [spot.x + Math.sin(spot.face) * d, L.DAM.crest, spot.z + Math.cos(spot.face) * d];
+    const D = L.NORTH_DOOR;
+    add({
+      pos: () => [(D.x0 + D.x1) / 2, D.y, -301.0],
+      r: 1.9,
+      label: () => ch2() && !s.has('ndoor') && '打开北门',
+      act: () => {
+        s.set('ndoor');
+        this.sound.effect('door');
+        this.save();
+      },
+    });
+    add({
+      pos: () => front(L.PANELS.power),
+      r: 1.6,
+      label: () => ch2() && !s.has('power') && '合上机房电源',
+      act: () => {
+        s.set('power');
+        this.sound.effect('power');
+        this.announce('1 号闸机房 · 已通电');
+        this.save();
+      },
+    });
+    const gateConsole = (id, n, why) =>
+      add({
+        pos: () => front(L.PANELS[id]),
+        r: 1.6,
+        label: () => ch2() && !s.has(id) && (s.canOpen(id) ? `开启 ${n} 号闸` : off(why)),
+        act: () => {
+          if (!s.openGate(id)) return;
+          this.sound.effect('gate');
+          this.announce(`${n} 号闸开启 · 泄洪`);
+          this.save();
+        },
+      });
+    gateConsole('g1', 1, '1 号闸 · 机房无电');
+    gateConsole('g2', 2, '2 号闸 · 无电（检修廊接线箱跳闸）');
+    add({
+      pos: () => [L.JUNCTION.x, L.JUNCTION.y, L.JUNCTION.z + 0.8],
+      r: 1.5,
+      label: () => ch2() && !s.has('junction') && '复位接线箱',
+      act: () => {
+        s.set('junction');
+        this.sound.effect('switch');
+        this.sound.effect('power');
+        this.announce('接线箱复位 · 2 号闸来电');
+        this.save();
+      },
+    });
+    add({
+      pos: () => front(L.PANELS.pump),
+      r: 1.5,
+      label: () => ch2() && !s.has('g3') && '操作手压泵',
+      act: () => this.enterPump(),
+    });
+    add({
+      pos: () => [L.GAUGE.x, L.DAM.crest, L.GAUGE.z + 0.9],
+      r: 1.8,
+      label: () => ch2() && !s.has('logged') && (s.has('recede') ? '记录水情' : null),
       act: () => this.finish(),
     });
     return list;
@@ -433,6 +516,33 @@ export class Game {
     if (this.savedView) Object.assign(this.rig, this.savedView);
     this.player.place(L.VALVE.x - 0.25, 0, L.VALVE.z + 1.35, this.player.facing);
   }
+  enterPump() {
+    const p = L.PANELS.pump;
+    this.mode = 'pump';
+    this.site.atPump = true;
+    this.savedView = { yaw: this.rig.yaw, pitch: this.rig.pitch };
+    this.player.place(p.x - 0.2, L.DAM.crest, p.z + 0.85, 0);
+    this.rig.yaw = -0.55;
+    this.rig.pitch = -0.2;
+  }
+  leavePump() {
+    const p = L.PANELS.pump;
+    this.mode = 'walk';
+    this.site.atPump = false;
+    if (this.savedView) Object.assign(this.rig, this.savedView);
+    this.player.place(p.x - 0.2, L.DAM.crest, p.z + 1.3, this.player.facing);
+  }
+  // The crest is overtopped: back to the last checkpoint with the water a little lower.
+  fail(text) {
+    if (this.mode === 'pump') this.leavePump();
+    this.failSpot = this.checkpoint();
+    this.respawning = 0.0001;
+    this.respawned = false;
+    this.fallAt = this.time;
+    this.announce(text, 4.2);
+    this.sound.effect('fall');
+    $('fade').classList.add('show');
+  }
   board() {
     const s = this.site;
     s.aboard = true;
@@ -444,15 +554,19 @@ export class Game {
     this.sound.effect('board');
   }
   finish() {
-    const s = this.site;
-    s.set('record');
+    const s = this.site,
+      two = this.chapter === 2;
+    s.set(two ? 'logged' : 'record');
     this.sound.effect('record');
     this.save();
     this.mode = 'cinematic';
     this.player.locked = true;
     const cp = this.camera.position;
-    this.orbit = Math.atan2(cp.x - 81, cp.z + 285);
-    this.shot = { position: new T.Vector3(), target: new T.Vector3(81, 116, -285), speed: 0.7 };
+    // Chapter one circles the core; chapter two the dam at first light.
+    this.orbitAt = two ? { x: 92, z: -470, r: 96, h: 128, y: 92 } : { x: 81, z: -285, r: 112, h: 172, y: 116 };
+    const o = this.orbitAt;
+    this.orbit = Math.atan2(cp.x - o.x, cp.z - o.z);
+    this.shot = { position: new T.Vector3(), target: new T.Vector3(o.x, o.y, o.z), speed: 0.7 };
     this.rig.frame(this.shot);
     this.endingAt = this.time + 3.2;
   }
@@ -474,6 +588,19 @@ export class Game {
       this.player.place(L.CART.x - 1.55, 0, s.cartZ, 0);
       this.sound.effect('board');
       if (e === 'dock') this.announce('到站 · 砼核');
+      this.save();
+    } else if (e === 'gate-g3') {
+      if (this.mode === 'pump') this.leavePump();
+      this.sound.effect('gate');
+      this.announce('3 号闸开启 · 三孔全开', 4);
+      this.save();
+    } else if (e === 'rising') {
+      this.sound.effect('alarm');
+      this.announce(`库水位 ${s.level.toFixed(1)} m · 逼近坝顶`, 3.4);
+    } else if (e === 'overtop') this.fail('洪水漫过坝顶 · 回到检查点');
+    else if (e === 'recede') {
+      this.world.weather.set('dawn');
+      this.announce('水位回落 · 雨停了', 4.5);
       this.save();
     } else if (e === 'lift-start') this.sound.effect('lift');
     else if (e === 'lift-stop') {
@@ -525,7 +652,9 @@ export class Game {
     }
     const walkYaw = this.moveYaw ?? this.rig.yaw;
     let drive = false,
-      brake = false;
+      brake = false,
+      pumpHeld = false,
+      strokes = 0;
     if (this.respawning) {
       /* Input waits for the screen to clear. */
     } else if (this.mode === 'valve') {
@@ -543,6 +672,13 @@ export class Game {
       drive = inp.z < -0.3;
       brake = inp.z > 0.3;
       if (inp.interact) s.stopping = true;
+    } else if (this.mode === 'pump') {
+      if (Math.abs(inp.x) > 0.5 || Math.abs(inp.z) > 0.5) this.leavePump();
+      else {
+        pumpHeld = inp.use;
+        strokes = inp.interact ? 1 : 0;
+        if (strokes) this.sound.effect('detent');
+      }
     } else if (this.mode === 'walk' && inp.interact) this.interact();
     if (inp.lamp && this.chapter === 2 && this.mode !== 'cinematic') {
       this.world.weather.lampOn = !this.world.weather.lampOn;
@@ -550,17 +686,27 @@ export class Game {
     }
 
     const nearCore = Math.hypot(b.x - 81, b.z - L.CORE.z1) < 24 && b.y < 8;
-    for (const e of s.step(dt, { drive, brake, nearCore })) this.onEvent(e);
-    const inside = L.insideCore(b.x, b.y, b.z) ? 1 : 0;
+    for (const e of s.step(dt, { drive, brake, nearCore, pumpHeld, strokes })) this.onEvent(e);
+    // Gusts cross the storm bridge on a fixed beat once the shift is out on it.
+    let windX = 0;
+    if (this.chapter === 2 && s.has('bridge')) {
+      this.windClock += dt;
+      this.gust = gustAt(this.windClock);
+      this.exposed = this.mode === 'walk' && !p.flying && !this.respawning ? windExposure(b.x, b.y, b.z) : 0;
+      windX = GUST.speed * this.gust.push * this.exposed;
+    }
+    const inside = L.insideCore(b.x, b.y, b.z) || L.insideDam(b.x, b.y, b.z) ? 1 : 0;
     this.inside = T.MathUtils.damp(this.inside ?? inside, inside, 1.4, dt);
     this.world.update(dt, this.time, s, b, this.camera, this.inside);
     this.head.set(b.x, b.y + 1.62, b.z);
-    for (const e of this.world.weather.update(dt, this.time, this.camera, this.head, this.inside))
+    this.rain.set(2.4 + 9 * this.gust.push, 0, -1.1);
+    for (const e of this.world.weather.update(dt, this.time, this.camera, this.head, this.inside, this.rain))
       if (e.type === 'thunder') this.sound.thunder?.(e.delay, e.power);
 
     let landed = 0;
-    if (this.mode === 'cart' || this.mode === 'valve') {
+    if (this.mode === 'cart' || this.mode === 'valve' || this.mode === 'pump') {
       if (this.mode === 'cart') p.place(L.CART.x, L.CART.deck, s.cartZ - 0.41, 0);
+      else if (this.mode === 'pump') p.place(L.PANELS.pump.x - 0.2, L.DAM.crest, L.PANELS.pump.z + 0.85, 0);
       else p.place(L.VALVE.x - 0.25, 0, L.VALVE.z + 1.03, 0);
       p.speed = 0;
       p.air = 0;
@@ -581,14 +727,14 @@ export class Game {
       const r = p.update(
         dt,
         this.physics,
-        { x: inp.x, z: inp.z, run: inp.run, jump: inp.jump && !p.locked && !toggled, up: inp.up, down: inp.down },
+        { x: inp.x, z: inp.z, run: inp.run, jump: inp.jump && !p.locked && !toggled, up: inp.up, down: inp.down, windX },
         walkYaw
       );
       landed = r.landed;
       if (r.jumped) this.sound.effect('jump');
       if (landed > 1.1) this.sound.land(landed, b.ground?.surface === 'metal');
     }
-    const hands = this.mode === 'cart' || this.mode === 'valve' || this.time < this.handUntil ? 1 : 0;
+    const hands = this.mode === 'cart' || this.mode === 'valve' || this.mode === 'pump' || this.time < this.handUntil ? 1 : 0;
     const stepped = p.animate(dt, this.time, hands, this.mode === 'valve' ? s.opening : null);
     if (stepped && this.mode === 'walk') this.sound.step(b.ground?.surface === 'metal', inp.run);
     this.maxHeight = Math.max(this.maxHeight, b.y);
@@ -597,7 +743,8 @@ export class Game {
     this.trackProgress();
     if (this.mode === 'cinematic') {
       this.orbit += dt * 0.075;
-      this.shot.position.set(81 + Math.sin(this.orbit) * 112, 172, -285 + Math.cos(this.orbit) * 112);
+      const o = this.orbitAt;
+      this.shot.position.set(o.x + Math.sin(this.orbit) * o.r, o.h, o.z + Math.cos(this.orbit) * o.r);
       if (this.endingAt > 0 && this.time > this.endingAt) {
         this.endingAt = -1;
         this.input.unlock();
@@ -606,7 +753,7 @@ export class Game {
     }
     this.adapt(dt);
     const camMode =
-      this.mode === 'valve'
+      this.mode === 'valve' || this.mode === 'pump'
         ? { distance: 3.1 }
         : this.mode === 'cart'
           ? { distance: 5.6, lift: 0.3 }
@@ -635,6 +782,7 @@ export class Game {
   }
   zoneDistance(b) {
     if (b.z > L.BOOTH.z0 - 0.5 && Math.abs(b.x) < 4.2) return 3.0;
+    if (L.insideDam(b.x, b.y, b.z)) return 2.5;
     if (this.inside > 0.5 && b.y > 40) return 4.2;
     if (b.y > 15 && b.y < 30 && b.z < -40 && b.z > -50) return 3.4;
     return 4.6;
@@ -646,7 +794,19 @@ export class Game {
       if (this.respawning > 0.55 && !this.respawned) {
         const cutoff = this.fallAt - 1.2;
         const spot = [...this.safe].reverse().find((p) => p.t < cutoff) || this.safe[0];
-        if (spot) this.player.place(spot.x, spot.y, spot.z, this.player.facing);
+        if (this.failSpot) {
+          this.player.place(...this.failSpot);
+          this.rig.yaw = this.failSpot[3];
+          this.site.recover();
+          this.failSpot = null;
+          this.safe = [];
+          this.save();
+        } else if (this.fallSpot) {
+          // Blown off the storm bridge: back in the lee of the last refuge passed.
+          this.player.place(...this.fallSpot);
+          this.rig.yaw = this.fallSpot[3];
+          this.fallSpot = null;
+        } else if (spot) this.player.place(spot.x, spot.y, spot.z, this.player.facing);
         else this.player.place(...this.checkpoint());
         this.rig.snap();
         this.respawned = true;
@@ -660,6 +820,8 @@ export class Game {
     if (this.mode !== 'walk' || this.player.flying) return;
     const drop = b.peak - b.y;
     if (b.y < -5.6 || (!this.settings.dev && !b.grounded && drop > 10.5)) {
+      const fromBridge = this.chapter === 2 && b.peak > L.STORM_BRIDGE.top - 1 && b.z < L.STORM_BRIDGE.z0 && b.z > L.STORM_BRIDGE.z1;
+      this.fallSpot = fromBridge ? refugeBehind(b.z) : null;
       this.respawning = 0.0001;
       this.respawned = false;
       this.fallAt = this.time;
@@ -686,6 +848,18 @@ export class Game {
       this.announce('砼核', 3);
       this.save();
     }
+    if (this.chapter === 2) {
+      if (!s.has('bridge') && s.has('ndoor') && b.z < L.STORM_BRIDGE.z0 - 1.5 && b.y > 94) {
+        s.set('bridge');
+        this.windClock = 0;
+        this.announce('暴雨 · 库水位开始上涨', 3.6);
+        this.save();
+      }
+      if (!s.has('crest') && b.z < L.DAM.down + 0.5 && b.y > 94) {
+        s.set('crest');
+        this.save();
+      }
+    }
     if (!s.has('crown') && b.y > L.LEVEL.CROWN - 1.5) {
       s.set('crown');
       this.save();
@@ -699,13 +873,23 @@ export class Game {
       $('area-code').textContent = area.code;
     }
   }
+  // Rooms on the dam are lit once their power is back; the pump room has its emergency lamps.
+  roomLight(b) {
+    const s = this.site;
+    if (this.chapter !== 2 || !L.insideDam(b.x, b.y, b.z)) return 0;
+    if (b.y < 92 || (b.x > L.HOUSE.walls[0] && b.x < L.HOUSE.walls[1])) return s.has('junction') ? 0.8 : 0;
+    if (b.x < L.HOUSE.walls[0]) return s.has('power') ? 1 : 0;
+    if (b.x < L.HOUSE.walls[2]) return s.has('junction') ? 1 : 0;
+    return 0.45;
+  }
   adapt(dt) {
     const k = this.inside,
       w = this.world.weather,
       storm = w.state.storm;
+    this.roomLit = T.MathUtils.damp(this.roomLit ?? 0, this.roomLight(this.player.body), 3, dt);
     // Night needs a little more exposure; the shaft at night is mostly lamp and dark.
     this.renderer.toneMappingExposure = (1.04 + 0.3 * k) * (1 + 0.28 * storm);
-    this.world.setAmbient((1 - 0.68 * k) * w.ambient);
+    this.world.setAmbient((1 - 0.68 * k) * w.ambient + 0.12 * k * this.roomLit);
     this.scene.fog.color.copy(w.fog).lerp(this.fogIn, k * (1 - storm));
     // The haze settles in the canyon; above the transfer decks the air clears. Rain closes it in.
     const clear = 0.00265 - 0.0015 * T.MathUtils.smoothstep(this.camera.position.y, 15, 140);
@@ -737,9 +921,28 @@ export class Game {
         $('objective').classList.add('updated');
       }
     }
-    const atMachine = this.mode === 'valve' || this.mode === 'cart';
+    const atMachine = this.mode === 'valve' || this.mode === 'cart' || this.mode === 'pump';
     this.set('valve', $('valve-panel'), this.mode !== 'valve', 'hidden');
     this.set('cart', $('cart-panel'), this.mode !== 'cart', 'hidden');
+    this.set('pump', $('pump-panel'), this.mode !== 'pump', 'hidden');
+    if (this.mode === 'pump') {
+      this.set('pumpP', $('pump-pressure'), Math.round(s.pump * 100) + '%');
+      this.set('pumpG', $('pump-gate'), Math.round(s.gates.g3 * 100) + '%');
+      $('pump-fill').style.transform = `scaleX(${clamp(s.pump, 0, 1)})`;
+      this.set('pumpS', $('pump-state'), s.pump < PUMP.crack ? '压力不足 · 继续压泵' : '阀门开启 · 闸门上升中');
+    }
+    // The reservoir gauge: chapter two only.
+    const two = this.chapter === 2;
+    this.set('waterShown', $('water-gauge'), !two, 'hidden');
+    if (two) {
+      this.set('water', $('water-level'), s.level.toFixed(2));
+      const fill = Math.round(clamp((s.level - 88) / (L.RESERVOIR.crest - 88), 0, 1) * 200) / 200;
+      if (this.hud.waterFill !== fill) {
+        this.hud.waterFill = fill;
+        $('water-fill').style.transform = `scaleX(${fill})`;
+      }
+      this.set('waterHigh', $('water-gauge'), s.level >= 95 ? 'high' : s.gatesOpen >= 3 ? 'falling' : '', 'className');
+    }
     $('play-screen').classList.toggle('at-machine', atMachine);
     $('play-screen').classList.toggle('cinematic', this.mode === 'cinematic');
     if (this.mode === 'valve') {
@@ -759,6 +962,7 @@ export class Game {
     }
     let prompt = null;
     if (this.mode === 'valve') prompt = { text: '松开手轮' };
+    else if (this.mode === 'pump') prompt = { text: '压泵' };
     else if (this.mode === 'cart') prompt = { text: s.cartSpeed > 0.2 ? '停车并下车' : '下车' };
     else if (this.mode === 'walk' && !this.respawning) prompt = this.focus()?.label || null;
     const promptKey = prompt ? prompt.text + (prompt.disabled ? '!' : '') : '';
@@ -812,6 +1016,7 @@ export class Game {
     if (!spot) return;
     const [, x, y, z, yaw] = spot;
     if (this.mode === 'valve') this.leaveValve();
+    if (this.mode === 'pump') this.leavePump();
     if (this.mode === 'cart') {
       this.site.aboard = false;
       this.site.cartSpeed = 0;
@@ -829,8 +1034,12 @@ export class Game {
   hints(b) {
     let key = '';
     const touch = $('app').classList.contains('touch');
+    const bridgeWind = this.chapter === 2 && this.site.has('bridge') && b.z < L.STORM_BRIDGE.z0 && b.z > L.STORM_BRIDGE.z1 && b.y > 94;
     if (this.mode === 'walk' && !this.respawning) {
       if (this.time < 16 && !this.site.has('door')) key = touch ? '' : 'start';
+      else if (this.chapter === 2 && this.time < 14 && !this.site.has('ndoor')) key = 'ch2';
+      else if (bridgeWind && this.gust.phase === 'gust' && this.exposed) key = 'gust';
+      else if (bridgeWind && this.gust.phase === 'warn' && windExposure(b.x, b.y, b.z)) key = 'gustwarn';
       else if (b.x > L.CATWALK.x1 - 4.5 && b.x < L.CATWALK.x1 + 0.5 && Math.abs(b.z - L.CATWALK.z) < 1.2 && !this.site.has('s3'))
         key = 'gap';
       else if (Math.abs(b.x - (L.TOWER.x0 + L.TOWER.x1) / 2) < 3.2 && b.z > L.TOWER.z1 - 1 && b.z < L.TOWER.z1 + 3 && b.y < 1)
@@ -844,9 +1053,13 @@ export class Game {
       gap: '检修道断开 · 助跑后按空格跳过去',
       tower: '转运梁检修梯 · 可攀至 +023 高处',
       stairs: '北墙检修梯通往主控层',
+      ch2: touch ? '北门在北墙梯顶平台' : '北门在北墙梯顶平台 · L 开关头灯',
+      gustwarn: '阵风将至 · 躲进避风处，或向西（左侧）顶风奔跑',
+      gust: '阵风！',
     }[key];
     $('hint').textContent = text || '';
     $('hint').classList.toggle('show', !!text);
+    $('hint').classList.toggle('alert', key === 'gust' || key === 'gustwarn');
   }
 
   // ---------- Frame ----------

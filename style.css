@@ -1021,6 +1021,88 @@ h2 {
   color: #ffb883;
   margin-right: 3px;
 }
+/* Chapter two: the hand pump and the reservoir gauge. */
+.pump-track {
+  position: relative;
+  height: 6px;
+}
+.pump-track i {
+  background: #d89a5a;
+}
+.pump-track b {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 62%;
+  width: 2px;
+  background: #f1f1e9;
+}
+#pump-state,
+.panel-note {
+  margin-top: 9px;
+  color: #c2ccbc;
+  font: 11px var(--mono);
+}
+.panel-note {
+  margin: 8px 0 0;
+  opacity: 0.7;
+}
+#water-gauge {
+  position: absolute;
+  right: var(--edge);
+  bottom: 62px;
+  width: 210px;
+  font: 12px var(--mono);
+  color: #e8e8dc;
+  text-align: right;
+  filter: drop-shadow(0 1px 4px #181c18);
+  pointer-events: none;
+}
+#water-gauge span {
+  color: #8fc0d0;
+  margin-right: 8px;
+}
+#water-gauge b {
+  font-weight: normal;
+  font-size: 15px;
+}
+#water-gauge i {
+  font-style: normal;
+  opacity: 0.7;
+  margin-left: 5px;
+}
+.water-bar {
+  margin-top: 6px;
+  height: 4px;
+  background: #ffffff1c;
+  overflow: hidden;
+}
+.water-bar i {
+  display: block;
+  height: 100%;
+  background: #6aa9bd;
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: background 0.4s;
+}
+#water-gauge.high b,
+#water-gauge.high span {
+  color: #ff9c6b;
+}
+#water-gauge.high .water-bar i {
+  background: #e2643a;
+}
+#water-gauge.falling span {
+  color: #8fd0a4;
+}
+#hint.alert {
+  border-color: #ff8445aa;
+  color: #ffd2b3;
+}
+.cinematic #water-gauge {
+  opacity: 0;
+  transition: opacity 1.2s;
+}
 #pressure-stability {
   margin-top: 9px;
   color: #c2ccbc;

@@ -194,7 +194,7 @@ export class Site {
           this.pumpClock -= 1 / PUMP.auto;
           this.pumpStroke();
         }
-      } else this.pumpClock = 1 / PUMP.auto;
+      } else this.pumpClock = 0;
       for (let i = 0; i < (input.strokes || 0); i++) this.pumpStroke();
     }
     this.pump = Math.max(0, this.pump - PUMP.leak * dt);
@@ -218,7 +218,8 @@ export class Site {
         events.push('overtop');
       }
     }
-    if (this.gatesOpen >= 3 && !this.flags.recede && this.level < RESERVOIR.start - 0.6) {
+    // With all three open the water falls fast; once it is back near its evening level, the storm is over.
+    if (this.gatesOpen >= 3 && !this.flags.recede && this.level < RESERVOIR.start + 0.6) {
       this.set('recede');
       events.push('recede');
     }

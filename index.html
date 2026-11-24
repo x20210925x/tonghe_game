@@ -157,6 +157,23 @@
             <button id="traction"><kbd>W</kbd> 牵引</button><button id="brake"><kbd>S</kbd> 制动</button>
           </div>
         </section>
+        <section id="pump-panel" class="machine-panel" aria-label="3 号闸手压泵" hidden>
+          <div class="instrument-title"><span>G–03</span><strong>液压手压泵</strong></div>
+          <div class="cart-readings">
+            <div><small>系统压力</small><output id="pump-pressure">0%</output></div>
+            <div><small>闸门开度</small><output id="pump-gate">0%</output></div>
+          </div>
+          <div class="hold-track pump-track"><i id="pump-fill"></i><b></b></div>
+          <div id="pump-state"></div>
+          <div class="instrument-controls">
+            <button id="pump-stroke"><kbd>E</kbd> 压泵（按住或连按）</button>
+          </div>
+          <p class="panel-note">移动键离开</p>
+        </section>
+        <div id="water-gauge" hidden>
+          <div><span>库水位</span><b id="water-level">92.00</b><i>/ 坝顶 96.00 m</i></div>
+          <div class="water-bar"><i id="water-fill"></i></div>
+        </div>
         <div id="zone-banner" aria-live="polite"></div>
         <div id="touch-pad"><i></i></div>
         <button id="touch-run" aria-label="切换奔跑">奔跑</button>

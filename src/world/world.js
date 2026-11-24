@@ -58,7 +58,7 @@ export function buildWorld(scene, mat, daylight, physics) {
     update(dt, time, site, player, camera, inside) {
       machines.update(dt, time, site, camera);
       coreworks.update(dt, time, site, player, inside);
-      dam.update(dt, time, site, camera);
+      dam.update(dt, time, site, camera, weather.ambient, player);
       pickups.update(time, site);
       scenery.update(dt, time, player, camera, inside);
       atmosphere.update(dt, time, camera, site, inside, weather.state.storm);
