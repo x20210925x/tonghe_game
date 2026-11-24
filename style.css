@@ -346,7 +346,7 @@ h1 {
   background: none;
   border: 0;
   padding: 8px 0;
-  opacity: 0.52;
+  opacity: 0.66;
   transition: opacity 0.18s;
 }
 #chapter-pick button[aria-pressed='true'] {

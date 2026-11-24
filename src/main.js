@@ -332,12 +332,18 @@ function show(kind, origin = '', arg) {
     );
     $('archive-ok').onclick = close;
   } else if (kind === 'restart') {
+    // In chapter two the shift can start that chapter again or go back to the very beginning.
+    const two = game.chapter === 2;
     dialogBase(
       kind,
       'FIELD SESSION',
       '重新开始巡检？',
-      '<p class="dialog-note">本次巡检进度与已找到的档案将被清除，你会回到值班室。</p><div class="action-row">' +
-        button('confirm-restart', '重新开始', true) +
+      (two
+        ? '<p class="dialog-note">重新开始第二章：本章进度与档案清除，回到主控层。<br />从第一章开始：回到值班室重新巡检；第二章进度保留，可在标题页切换回来。</p>'
+        : '<p class="dialog-note">本次巡检进度与已找到的档案将被清除，你会回到值班室。</p>') +
+        '<div class="action-row">' +
+        button('confirm-restart', two ? '重新开始第二章' : '重新开始', true) +
+        (two ? button('restart-ch1', '从第一章开始') : '') +
         button('cancel-restart', '保留当前进度') +
         '</div>'
     );
@@ -346,6 +352,14 @@ function show(kind, origin = '', arg) {
       game.reset();
       resume();
     };
+    if (two)
+      $('restart-ch1').onclick = () => {
+        game.save();
+        setSave(1, null);
+        selectChapter(1);
+        game.reset(1);
+        resume();
+      };
     $('cancel-restart').onclick = () => show('pause');
   } else if (kind === 'new-run') {
     dialogBase(
