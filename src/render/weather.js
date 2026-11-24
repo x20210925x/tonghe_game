@@ -5,12 +5,12 @@ import { WET } from './materials.js';
 export const SKIES = {
   day: { storm: 0, rain: 0, dawn: 0 },
   storm: { storm: 1, rain: 1, dawn: 0 },
-  dawn: { storm: 0.3, rain: 0, dawn: 1 },
+  dawn: { storm: 0.12, rain: 0, dawn: 1 },
 };
 const FOG = {
   day: new T.Color(0xa8b4bb),
   storm: new T.Color(0x151b21),
-  dawn: new T.Color(0x8d8d8f),
+  dawn: new T.Color(0x9c918a),
 };
 
 // Rain as thin streaks wrapped around the camera. Each drop is one line segment whose tail is

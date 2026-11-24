@@ -405,6 +405,7 @@ function finished(stats) {
       row('终点', ending.end) +
       row('巡检用时', clock(stats.time)) +
       row('巡检档案', `${stats.found} / ${stats.total}`) +
+      (stats.fails ? row('漫顶重来', `${stats.fails} 次`) : '') +
       '<div class="action-row">' +
       (next ? button('next-chapter', '进入第二章 · 汛期', true) : '') +
       button('free-roam', '继续漫游', !next) +

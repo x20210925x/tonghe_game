@@ -65,6 +65,7 @@ export class Site {
     this.stroke = 0;
     this.atPump = false;
     this.pumpClock = 0;
+    this.strokes = 0;
     this.overtopped = false;
     this.alarm = ALARMS.filter((a) => this.level >= a).length;
     this.fails = 0;
@@ -174,6 +175,7 @@ export class Site {
     if (!this.atPump) return;
     this.pump = Math.min(1, this.pump + PUMP.stroke);
     this.stroke = 1;
+    this.strokes++;
   }
   // After the crest is overtopped the shift starts again from a checkpoint with lower water.
   recover() {

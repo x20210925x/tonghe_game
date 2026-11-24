@@ -17,6 +17,7 @@ import {
   JUNCTION,
   PANELS,
   RESERVOIR,
+  GAUGE,
   insideDam,
 } from '../game/layout.js';
 
@@ -322,6 +323,15 @@ export function buildDam(b) {
   b.gantry('坝顶  ·  封闭', 'CREST CLOSED', w0 + 0.6, (ROAD.z0 + ROAD.z1) / 2, Math.PI / 2, ROAD.z1 - ROAD.z0 - 0.6, 3.3, TOP, 2.0, 0.6);
   b.gantry('坝顶  ·  封闭', 'CREST CLOSED', w1 - 0.6, (ROAD.z0 + ROAD.z1) / 2, -Math.PI / 2, ROAD.z1 - ROAD.z0 - 0.6, 3.3, TOP, 2.0, 0.6);
   b.gantry('北坝  ·  启闭机房', 'N-DAM  /  HOIST HOUSE', xc, DOWN + 1.6, 0, SB.x1 - SB.x0 - 0.3, 3.3, TOP, 2.3, 0.66);
+
+  // Water-level station at the west end: a log box on a post, its plate on the parapet and a
+  // staff gauge painted down the upstream face.
+  b.box(GAUGE.x, TOP + 0.55, GAUGE.z - 0.5, 0.16, 1.1, 0.16, mat.steel, { camera: false });
+  b.box(GAUGE.x, TOP + 1.12, GAUGE.z - 0.45, 0.62, 0.26, 0.42, mat.enamel);
+  b.box(GAUGE.x, TOP + 1.26, GAUGE.z - 0.43, 0.48, 0.02, 0.32, mat.paper);
+  b.box(GAUGE.x + 0.4, TOP + 1.2, GAUGE.z - 0.5, 0.12, 0.12, 0.12, mat.amber);
+  b.plate('水情观测', 'WATER LEVEL STATION', GAUGE.x, TOP + 0.72, UP + 0.63, 1.3, 0.38);
+  for (let y = 86; y < TOP; y += 0.5) b.box(GAUGE.x, y + 0.25, UP - 0.015, 0.32, 0.5, 0.03, (y * 2) % 2 ? mat.red : mat.paper);
 
   // ---------- Hoist house ----------
   const H = HOUSE,

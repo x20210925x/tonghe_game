@@ -95,6 +95,11 @@ export const ARCHIVE_SPOTS = {
   a6: { x: 89.6, y: 0.62, z: -198, base: 0 },
   a7: { x: 65.2, y: 48.62, z: -291, base: LEVEL.L1 },
   a8: { x: 81, y: 132.62, z: -306.6, base: LEVEL.CROWN },
+  // Chapter two: the control level, a bridge refuge, the gallery and the pump room.
+  a9: { x: 74.6, y: 96.62, z: -286.2, base: LEVEL.L2 },
+  a10: { x: 63.25, y: 96.62, z: -383.4, base: STORM_BRIDGE.top },
+  a11: { x: 95.6, y: 84.62, z: -475.45, base: GALLERY.y },
+  a12: { x: 129.0, y: 96.62, z: -474.3, base: DAM.crest },
 };
 
 export function areaAt(x, y, z) {

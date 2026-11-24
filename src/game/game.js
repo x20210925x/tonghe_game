@@ -677,7 +677,6 @@ export class Game {
       else {
         pumpHeld = inp.use;
         strokes = inp.interact ? 1 : 0;
-        if (strokes) this.sound.effect('detent');
       }
     } else if (this.mode === 'walk' && inp.interact) this.interact();
     if (inp.lamp && this.chapter === 2 && this.mode !== 'cinematic') {
@@ -686,7 +685,9 @@ export class Game {
     }
 
     const nearCore = Math.hypot(b.x - 81, b.z - L.CORE.z1) < 24 && b.y < 8;
+    const pumped = s.strokes;
     for (const e of s.step(dt, { drive, brake, nearCore, pumpHeld, strokes })) this.onEvent(e);
+    if (s.strokes !== pumped) this.sound.effect('pump');
     // Gusts cross the storm bridge on a fixed beat once the shift is out on it.
     let windX = 0;
     if (this.chapter === 2 && s.has('bridge')) {
@@ -701,7 +702,7 @@ export class Game {
     this.head.set(b.x, b.y + 1.62, b.z);
     this.rain.set(2.4 + 9 * this.gust.push, 0, -1.1);
     for (const e of this.world.weather.update(dt, this.time, this.camera, this.head, this.inside, this.rain))
-      if (e.type === 'thunder') this.sound.thunder?.(e.delay, e.power);
+      if (e.type === 'thunder') this.sound.thunder(e.delay, e.power);
 
     let landed = 0;
     if (this.mode === 'cart' || this.mode === 'valve' || this.mode === 'pump') {
@@ -772,7 +773,15 @@ export class Game {
       yaw: this.rig.yaw,
       inside: this.inside,
       booth: b.z > L.BOOTH.z0 && Math.abs(b.x) < 4 ? 1 : 0,
+      small: L.insideDam(b.x, b.y, b.z),
       site: s,
+      storm: {
+        rain: this.world.weather.state.rain,
+        storm: this.world.weather.state.storm,
+        warn: this.gust.warn,
+        push: this.gust.push,
+        exposed: this.exposed,
+      },
     });
     this.updateHUD();
     if (this.time > this.nextSave && this.mode === 'walk') {

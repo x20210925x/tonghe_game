@@ -1,6 +1,6 @@
 // All sound is synthesized locally. The long return is mixed by enclosure: the booth is dry,
 // the spillway is open air, and the core shaft rings for seconds.
-import { LIFT, OUTLET } from '../game/layout.js';
+import { LIFT, OUTLET, GATES, DAM } from '../game/layout.js';
 
 export class Soundscape {
   constructor() {
@@ -113,6 +113,50 @@ export class Soundscape {
     }
     this.hum.connect(this.mix);
     this.hum.connect(this.echo);
+
+    // ---------- Chapter two: the storm ----------
+    // Rain: bright hiss over a softer patter, muffled by a roof overhead.
+    const rainHigh = c.createBiquadFilter();
+    rainHigh.type = 'highpass';
+    rainHigh.frequency.value = 1300;
+    this.rainRoof = c.createBiquadFilter();
+    this.rainRoof.type = 'lowpass';
+    this.rainRoof.frequency.value = 9000;
+    this.rain = c.createGain();
+    this.rain.gain.value = 0;
+    loop(3.1).connect(rainHigh).connect(this.rainRoof);
+    const patter = c.createBiquadFilter();
+    patter.type = 'bandpass';
+    patter.frequency.value = 520;
+    patter.Q.value = 0.7;
+    loop(1.7).connect(patter).connect(this.rainRoof);
+    this.rainRoof.connect(this.rain).connect(this.mix);
+    // A whistle across the bridge rails that climbs before each gust.
+    this.whistleFilter = c.createBiquadFilter();
+    this.whistleFilter.type = 'bandpass';
+    this.whistleFilter.Q.value = 9;
+    this.whistleFilter.frequency.value = 600;
+    this.whistle = c.createGain();
+    this.whistle.gain.value = 0;
+    loop(1.3).connect(this.whistleFilter).connect(this.whistle).connect(this.mix);
+    // The dam spilling: a low roar from the open bays, louder the more gates are open.
+    const roarLow = c.createBiquadFilter();
+    roarLow.type = 'lowpass';
+    roarLow.frequency.value = 520;
+    this.roar = c.createGain();
+    this.roar.gain.value = 0;
+    this.roarPan = panner();
+    loop(0.8).connect(roarLow).connect(this.roar).connect(this.roarPan).connect(this.mix);
+    this.roar.connect(this.echo);
+  }
+  // Thunder from a strike some kilometres off: a crack when it is close, then a long roll.
+  thunder(delay = 2, power = 0.6) {
+    if (!this.ctx || !this.active) return;
+    const p = Math.max(0.15, Math.min(1, power));
+    if (p > 0.72) this.burst(2600, 0.32, 0.5 * p, 'highpass', 1.6, delay);
+    this.burst(160, 3.2 + p * 1.6, 0.85 * p, 'lowpass', 0.55, delay + 0.05);
+    this.burst(90, 4.2, 0.55 * p, 'lowpass', 0.4, delay + 0.6);
+    this.tone(48, 31, 3.4, 0.12 * p, delay + 0.1);
   }
   apply() {
     if (this.ctx)
@@ -132,16 +176,34 @@ export class Soundscape {
       dz = sz - z;
     return Math.max(-1, Math.min(1, (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(min, Math.hypot(dx, dz))));
   }
-  // p: { x, y, z, yaw, inside, booth, site }
+  // p: { x, y, z, yaw, inside, booth, small, site, storm: { rain, storm, warn, push, exposed } }
   update(p) {
     if (!this.ctx) return;
     const { x, y, z, yaw, inside, booth, site } = p,
       c = this.ctx.currentTime;
+    const storm = p.storm || { rain: 0, storm: 0, warn: 0, push: 0, exposed: 0 };
     const height = Math.max(0, Math.min(1, y / 130));
     const open = 1 - Math.max(inside, booth);
-    this.return.gain.setTargetAtTime(booth > 0.5 ? 0.12 : inside > 0.5 ? 0.62 : 0.38, c, 0.6);
-    this.wind.gain.setTargetAtTime(0.05 + open * (0.1 + height * 0.2) + 0.025 * Math.sin(site.time * 0.21), c, 0.6);
-    this.windFilter.frequency.setTargetAtTime(220 + open * (260 + height * 380) + 80 * Math.sin(site.time * 0.13), c, 0.8);
+    // Small rooms on the dam ring briefly; the core shaft rings for seconds.
+    this.return.gain.setTargetAtTime(booth > 0.5 || p.small ? 0.12 : inside > 0.5 ? 0.62 : 0.38, c, 0.6);
+    const gust = storm.push * storm.exposed;
+    this.wind.gain.setTargetAtTime(
+      0.05 + open * (0.1 + height * 0.2 + storm.storm * 0.12) + 0.025 * Math.sin(site.time * 0.21) + gust * 0.34,
+      c,
+      gust > 0.1 ? 0.15 : 0.6
+    );
+    this.windFilter.frequency.setTargetAtTime(220 + open * (260 + height * 380) + 80 * Math.sin(site.time * 0.13) + gust * 420, c, 0.5);
+    this.rain.gain.setTargetAtTime(storm.rain * (0.2 - 0.09 * inside), c, 0.8);
+    this.rainRoof.frequency.setTargetAtTime(inside > 0.5 ? 700 : 9000, c, 0.3);
+    const onBridge = storm.exposed || (storm.rain > 0.5 && y > 90 && z < -300 && z > -470 && inside < 0.5) ? 1 : 0;
+    this.whistle.gain.setTargetAtTime(onBridge * (storm.warn * 0.055 + storm.push * 0.07), c, 0.25);
+    this.whistleFilter.frequency.setTargetAtTime(520 + storm.warn * 520 + storm.push * 380, c, 0.4);
+    // The open bays roar from the foot of the dam face.
+    const flow = site.gates ? GATES.reduce((n, g) => n + site.gates[g.id], 0) : 0;
+    const roarX = 100,
+      roarD = Math.hypot(roarX - x, (DAM.face - y) * 0.6, DAM.down + 4 - z);
+    this.roar.gain.setTargetAtTime(flow > 0 ? (0.42 * Math.min(1, flow / 2)) / (1 + (roarD / 60) ** 1.6) * (1 - inside * 0.6) : 0, c, 0.8);
+    if (this.roarPan.pan) this.roarPan.pan.setTargetAtTime(this.pan(roarX, DAM.down + 4, x, z, yaw, 20), c, 0.2);
     const range = Math.hypot(OUTLET.x - x, OUTLET.z - z, y * 0.5);
     this.spill.gain.setTargetAtTime(site.has('valve') ? (0.47 / (1 + (range / 24) ** 1.7)) * (1 - inside * 0.8) : 0.002, c, 0.55);
     if (this.spillPan.pan) this.spillPan.pan.setTargetAtTime(this.pan(OUTLET.x, OUTLET.z, x, z, yaw, 3), c, 0.1);
@@ -278,6 +340,19 @@ export class Soundscape {
       case 'deny':
         t(180, 150, 0.18, 0.08, 0, 'square');
         t(140, 120, 0.2, 0.06, 0.16, 'square');
+        break;
+      case 'alarm':
+        for (let i = 0; i < 3; i++) {
+          t(880, 880, 0.22, 0.06, i * 0.5, 'square');
+          t(660, 660, 0.22, 0.05, i * 0.5 + 0.25, 'square');
+        }
+        break;
+      case 'pump':
+        t(150, 70, 0.18, 0.12, 0, 'triangle');
+        this.burst(420, 0.2, 0.18, 'lowpass', 0.9, 0.04);
+        break;
+      case 'thunder':
+        this.thunder(0.2, 0.9);
         break;
       case 'record':
         t(523, 523, 1.6, 0.05);
