@@ -127,8 +127,9 @@ export function buildScenery(b, daylight) {
       }
       for (let j = 0; j < 5; j++) b.box(sx - side * 19.3, 161.2, z + j * 11 - 22, 1.9, 2.1, 1.1, mat.darkCast);
     }
-  // Distant spill gates and transfer decks close the horizon.
-  for (const z of [-475, -530, -624, 182, 246]) {
+  // Distant spill gates and transfer decks close the southern horizon; the north dam is built
+  // in full by dam.js.
+  for (const z of [182, 246]) {
     b.box(55, 91, z, 264, 13, 13, mat.darkCast);
     b.box(55, 99, z, 264, 2.8, 15, mat.cast);
     for (let i = 0; i < 5; i++) {
