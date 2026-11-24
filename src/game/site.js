@@ -1,6 +1,7 @@
 // The state of the structure: story flags, found archives and every machine that moves.
 // Pure logic, so the route can be tested without a renderer.
-import { CART, LEVEL, LIFT } from './layout.js';
+import { CART, LEVEL, LIFT, RESERVOIR } from './layout.js';
+import { riseRate, ALARMS, PUMP, GATE_TIME, clampLevel } from './flood.js';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 export const pressureAt = (opening) => 1.44 - opening * 1.22;
@@ -22,7 +23,11 @@ export const CH1_FLAGS = [
   'crown',
   'record',
 ];
-export const FLAGS = [...CH1_FLAGS];
+// Chapter two: north door, onto the bridge (the water starts to rise), the crest, the three
+// gates and their prerequisites, the falling water and the final log.
+export const CH2_FLAGS = ['ndoor', 'bridge', 'crest', 'power', 'g1', 'junction', 'g2', 'g3', 'recede', 'logged'];
+export const FLAGS = [...CH1_FLAGS, ...CH2_FLAGS];
+const GATE_IDS = ['g1', 'g2', 'g3'];
 
 export class Site {
   constructor() {
@@ -53,6 +58,16 @@ export class Site {
     this.restartAt = -1;
     this.powerAt = -1;
     this.autoLift = false;
+    // Chapter two's water and gates.
+    this.level = RESERVOIR.start;
+    this.gates = { g1: 0, g2: 0, g3: 0 };
+    this.pump = 0;
+    this.stroke = 0;
+    this.atPump = false;
+    this.pumpClock = 0;
+    this.overtopped = false;
+    this.alarm = ALARMS.filter((a) => this.level >= a).length;
+    this.fails = 0;
     if (this.chapter === 2) this.carryOver();
   }
   // Chapter two begins where the first shift ended: power on, the core restarted, the lift
@@ -78,6 +93,7 @@ export class Site {
     this.flags[flag] = true;
     if (flag === 'main') this.powerAt = this.time;
     if (flag === 'console') this.restartAt = this.time;
+    if (flag === 'g3') this.gates.g3 = 1;
     return true;
   }
   get switchesClosed() {
@@ -100,6 +116,7 @@ export class Site {
       cartZ: this.cartZ,
       liftY: this.liftMoving ? this.liftFrom : this.liftY,
       time: this.time,
+      ...(this.chapter === 2 && { level: this.level, gates: { ...this.gates }, fails: this.fails }),
     };
   }
   restore(data = {}, chapter = data.chapter ?? 1) {
@@ -125,6 +142,85 @@ export class Site {
     if (this.flags.console) {
       this.restartAt = -100;
       this.autoLift = true;
+    }
+    if (this.chapter === 2) {
+      if (Number.isFinite(data.level)) this.level = clampLevel(data.level);
+      // A save taken at the brink would fail at once; give the shift a fair margin back.
+      if (this.level > RESERVOIR.crest - 0.3) this.level = RESERVOIR.recover;
+      for (const id of GATE_IDS) {
+        const v = data.gates?.[id];
+        this.gates[id] = this.flags[id] ? 1 : Number.isFinite(v) ? clamp(v, 0, 1) : 0;
+      }
+      this.fails = Number.isFinite(data.fails) ? Math.max(0, data.fails) : 0;
+      this.alarm = ALARMS.filter((a) => this.level >= a).length;
+    }
+  }
+  // ---------- Chapter two ----------
+  get gatesOpen() {
+    return GATE_IDS.reduce((n, id) => n + this.gates[id], 0);
+  }
+  canOpen(id) {
+    if (this.flags[id]) return false;
+    if (id === 'g1') return !!this.flags.power;
+    if (id === 'g2') return !!this.flags.junction;
+    return false;
+  }
+  // Command a rope-hoist gate to open; gate 3 only moves under the hand pump.
+  openGate(id) {
+    if (!this.canOpen(id)) return false;
+    return this.set(id);
+  }
+  pumpStroke() {
+    if (!this.atPump) return;
+    this.pump = Math.min(1, this.pump + PUMP.stroke);
+    this.stroke = 1;
+  }
+  // After the crest is overtopped the shift starts again from a checkpoint with lower water.
+  recover() {
+    this.level = Math.min(this.level, RESERVOIR.recover);
+    this.overtopped = false;
+    this.alarm = ALARMS.filter((a) => this.level >= a).length;
+    this.atPump = false;
+    this.fails++;
+  }
+  stepFlood(dt, input, events) {
+    for (const id of ['g1', 'g2'])
+      if (this.flags[id] && this.gates[id] < 1) this.gates[id] = Math.min(1, this.gates[id] + dt / GATE_TIME);
+    // The hand pump: held, it strokes on its own; quick presses count one by one.
+    if (this.atPump) {
+      if (input.pumpHeld) {
+        this.pumpClock += dt;
+        while (this.pumpClock >= 1 / PUMP.auto) {
+          this.pumpClock -= 1 / PUMP.auto;
+          this.pumpStroke();
+        }
+      } else this.pumpClock = 1 / PUMP.auto;
+      for (let i = 0; i < (input.strokes || 0); i++) this.pumpStroke();
+    }
+    this.pump = Math.max(0, this.pump - PUMP.leak * dt);
+    this.stroke = Math.max(0, this.stroke - dt * 3);
+    if (this.atPump && this.pump >= PUMP.crack && !this.flags.g3) {
+      this.gates.g3 = Math.min(1, this.gates.g3 + PUMP.rate * dt);
+      this.pump = Math.max(0, this.pump - PUMP.cost * dt);
+      if (this.gates.g3 >= 1) {
+        this.set('g3');
+        events.push('gate-g3');
+      }
+    }
+    // The reservoir rises from the moment the shift steps onto the bridge.
+    if (this.flags.bridge && !this.overtopped) {
+      this.level = clampLevel(this.level + riseRate(this.gatesOpen) * dt);
+      const alarm = ALARMS.filter((a) => this.level >= a).length;
+      if (alarm > this.alarm) events.push('rising');
+      this.alarm = alarm;
+      if (this.level >= RESERVOIR.crest) {
+        this.overtopped = true;
+        events.push('overtop');
+      }
+    }
+    if (this.gatesOpen >= 3 && !this.flags.recede && this.level < RESERVOIR.start - 0.6) {
+      this.set('recede');
+      events.push('recede');
     }
   }
   turn(amount) {
@@ -160,6 +256,7 @@ export class Site {
   step(dt, input = {}) {
     const events = [];
     this.time += dt;
+    if (this.chapter === 2) this.stepFlood(dt, input, events);
     const target = pressureAt(this.opening) + (this.atValve ? this.disturbance() : 0);
     this.pressure += (target - this.pressure) * (1 - Math.exp(-3.3 * dt));
     if (this.atValve) {

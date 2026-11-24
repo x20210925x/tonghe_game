@@ -82,7 +82,9 @@ export const PANELS = {
   g2: { x: 108.9, z: -473.75, face: Math.PI },
   pump: { x: 126.6, z: -476.9, face: 0 },
 };
-export const RESERVOIR = { start: 92, crest: 96 };
+export const RESERVOIR = { start: 92, crest: 96, recover: 93.5, low: 90.6 };
+// The water-level station at the west end of the crest, where the night's log is written.
+export const GAUGE = { x: 59.4, z: -476.5 };
 
 export const ARCHIVE_SPOTS = {
   a1: { x: -3.05, y: 1.02, z: 10.7, base: 0 },
