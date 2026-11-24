@@ -6,6 +6,7 @@ import { Player } from '../actor/player.js';
 import { loadDaylight } from '../render/daylight.js';
 import { makeMaterials } from '../render/materials.js';
 import { SceneResolve } from '../render/post.js';
+import { installShadowCascade } from '../render/cascade.js';
 import { buildWorld } from '../world/world.js';
 import { drawDial } from '../world/machines.js';
 import { CALL_PANELS } from '../world/coreworks.js';
@@ -55,6 +56,7 @@ export class Game {
     }
   }
   constructor(sound, settings, callbacks) {
+    installShadowCascade();
     this.sound = sound;
     this.settings = settings;
     this.callbacks = callbacks;
@@ -75,7 +77,7 @@ export class Game {
     this.fogOut = new T.Color(0xa8b4bb);
     this.fogIn = new T.Color(0x232624);
     this.scene.fog = new T.FogExp2(this.fogOut.clone(), 0.00265);
-    this.camera = new T.PerspectiveCamera(60, 1, 0.065, 1500);
+    this.camera = new T.PerspectiveCamera(60, 1, 0.1, 1500);
     this.camera.userData.inspectionView = true;
     this.post = new SceneResolve(this.renderer, this.camera);
     this.rig = new CameraRig(this.camera, this.physics);

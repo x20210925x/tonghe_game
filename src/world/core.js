@@ -118,8 +118,8 @@ export function buildCore(b) {
     b.box(x, LEVEL.L1 - 0.8, (S.z0 + L1.z1) / 2, 0.4, 0.6, L1.z1 - S.z0, mat.steel);
     b.rod([x, LEVEL.L1 - 1.1, L1.z1 - 0.3], [x, LEVEL.L1 - 6, S.z0], 0.14, mat.steel);
   }
-  b.box((L1.x0 + L1.x1) / 2, LEVEL.L1 - 0.3, L1.z1 - 0.08, L1.x1 - L1.x0, 0.6, 0.16, mat.steel);
-  b.box(L1.x1 - 0.08, LEVEL.L1 - 0.3, (L1.z0 + L1.z1) / 2, 0.16, 0.6, L1.z1 - L1.z0, mat.steel);
+  b.box((L1.x0 + L1.x1) / 2, LEVEL.L1 - 0.33, L1.z1 - 0.08, L1.x1 - L1.x0, 0.6, 0.16, mat.steel);
+  b.box(L1.x1 - 0.08, LEVEL.L1 - 0.33, (L1.z0 + L1.z1) / 2, 0.16, 0.6, L1.z1 - L1.z0, mat.steel);
   b.rail(L1.x0, L1.z1, LIFT.x0, L1.z1, LEVEL.L1);
   b.rail(L1.x1, L1.z1, L1.x1, L1.z0, LEVEL.L1);
   b.rail(FLIGHTS.x0, L1.z0, L1.x1, L1.z0, LEVEL.L1, mat.steel, false);
@@ -139,23 +139,28 @@ export function buildCore(b) {
   ];
   for (const r of runs) {
     b.flight({ x0: r.from, z0: r.z, x1: r.to, z1: r.z, y0: r.y, y1: r.y + FLIGHTS.rise, width: w, steps: 60, rails: r.rails });
-    const outer = r.z + w / 2;
+    // Brackets stay inside the flight's own band, so nothing crosses the flight beside it:
+    // the wall-side flight is braced to the wall, the outer flight to the hanger line.
+    const outer = r.z + w / 2,
+      wallSide = r.z === aMid,
+      inner = wallSide ? S.z0 : bN + 0.02;
     for (let k = 1; k <= 5; k++) {
       const t = k / 6,
         x = r.from + (r.to - r.from) * t,
         y = r.y + FLIGHTS.rise * t;
-      b.beam([x, y - 0.3, outer + 0.04], [x, y - 0.3, S.z0], 0.12, 0.2, mat.steel);
-      b.beam([x, y - 0.34, outer], [x, y - 3.4, S.z0 + 0.06], 0.1, 0.12, mat.steel);
-      b.box(x, y - 2.2, S.z0 + 0.04, 0.4, 2.6, 0.08, mat.iron);
+      b.beam([x, y - 0.3, outer + 0.04], [x, y - 0.3, inner], 0.12, 0.2, mat.steel);
+      b.beam([x, y - 0.34, outer], [x, y - (wallSide ? 2.6 : 1.4), inner + 0.06], 0.1, 0.12, mat.steel);
+      if (wallSide) b.box(x, y - 1.8, S.z0 + 0.04, 0.4, 2.0, 0.08, mat.iron);
     }
   }
   const landing = (lx0, lx1, y) => {
     b.slab(lx0, lx1, S.z0, bS, y, 0.3, mat.grate, METAL);
     b.box((lx0 + lx1) / 2, y - 0.55, S.z0 + 0.4, lx1 - lx0, 0.5, 0.8, mat.darkCast);
-    b.box((lx0 + lx1) / 2, y - 0.2, bS - 0.06, lx1 - lx0, 0.4, 0.12, mat.steel);
-    const edgeX = lx0 < S.x0 + 1 ? lx1 - 0.08 : lx0 + 0.08;
-    b.box(edgeX, y - 0.2, (S.z0 + bS) / 2, 0.12, 0.4, bS - S.z0, mat.steel);
-    b.beam([edgeX, y - 0.4, bS - 0.1], [edgeX, y - 3, S.z0 + 0.1], 0.12, 0.14, mat.steel);
+    b.box((lx0 + lx1) / 2, y - 0.23, bS - 0.06, lx1 - lx0, 0.4, 0.12, mat.steel);
+    const edgeX = lx0 < S.x0 + 1 ? lx1 - 0.08 : lx0 + 0.08,
+      midX = (lx0 + lx1) / 2;
+    b.box(edgeX, y - 0.23, (S.z0 + bS) / 2, 0.12, 0.4, bS - S.z0, mat.steel);
+    b.beam([midX, y - 0.4, bS - 0.1], [midX, y - 2.6, S.z0 + 0.1], 0.12, 0.14, mat.steel);
   };
   landing(S.x0, FLIGHTS.x0, LEVEL.L1);
   landing(S.x0, FLIGHTS.x0, LEVEL.L1 + 24);
@@ -220,8 +225,8 @@ export function buildCore(b) {
   // Control level (+96).
   b.slab(L2.x0, L2.x1, L2.z0, L2.z1, LEVEL.L2, 0.5, mat.darkCast);
   for (let z = L2.z1 - 1.5; z > L2.z0; z -= 4) b.rod([L2.x1, LEVEL.L2 - 0.5, z], [S.x0, LEVEL.L2 - 5, z], 0.18, mat.steel);
-  b.box((L2.x0 + L2.x1) / 2, LEVEL.L2 - 0.3, L2.z1 - 0.08, L2.x1 - L2.x0, 0.6, 0.16, mat.steel);
-  b.box(L2.x1 - 0.08, LEVEL.L2 - 0.3, (L2.z0 + L2.z1) / 2, 0.16, 0.6, L2.z1 - L2.z0, mat.steel);
+  b.box((L2.x0 + L2.x1) / 2, LEVEL.L2 - 0.33, L2.z1 - 0.08, L2.x1 - L2.x0, 0.6, 0.16, mat.steel);
+  b.box(L2.x1 - 0.08, LEVEL.L2 - 0.33, (L2.z0 + L2.z1) / 2, 0.16, 0.6, L2.z1 - L2.z0, mat.steel);
   b.rail(L2.x0, L2.z1, L2.x1, L2.z1, LEVEL.L2);
   b.rail(L2.x1, L2.z0, L2.x1, LIFT.z0, LEVEL.L2);
   b.rail(FLIGHTS.x0, L2.z0, L2.x1, L2.z0, LEVEL.L2, mat.steel, false);

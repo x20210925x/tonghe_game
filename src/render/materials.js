@@ -210,7 +210,7 @@ export function textPlate(text, sub, width, height, bg = '#27312e', fg = '#e2dec
   ctx.fillText(sub, 47, 202, 680);
   const tex = new T.CanvasTexture(c);
   tex.colorSpace = T.SRGBColorSpace;
-  return new T.Mesh(
+  const face = new T.Mesh(
     new T.PlaneGeometry(width, height),
     new T.MeshStandardMaterial({
       map: tex,
@@ -220,4 +220,11 @@ export function textPlate(text, sub, width, height, bg = '#27312e', fg = '#e2dec
       emissiveIntensity: 0.3,
     })
   );
+  // A real sign is a pressed steel plate: give it thickness and a painted back.
+  const back = new T.Mesh(new T.BoxGeometry(width + 0.03, height + 0.03, 0.025), plateBack);
+  back.position.z = -0.0135;
+  back.castShadow = back.receiveShadow = true;
+  face.add(back);
+  return face;
 }
+const plateBack = new T.MeshStandardMaterial({ color: 0x3a403c, roughness: 0.62, metalness: 0.45 });

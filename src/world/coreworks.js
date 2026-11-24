@@ -52,8 +52,8 @@ export function buildCoreworks(b, frame) {
     hw = W / 2,
     hd = D / 2;
   b.part(car, 0, -0.32, 0, W, 0.64, D, mat.steel);
-  b.part(car, 0, -0.029, 0, W - 0.2, 0.058, D - 0.2, mat.iron);
-  for (let z = -hd + 0.6; z < hd; z += 0.46) b.part(car, 0, 0.014, z, W - 0.3, 0.032, 0.044, mat.steel);
+  b.part(car, 0, -0.023, 0, W - 0.2, 0.058, D - 0.2, mat.iron);
+  for (let z = -hd + 0.6; z < hd; z += 0.46) b.part(car, 0, 0.018, z, W - 0.3, 0.032, 0.044, mat.steel);
   for (const [x, z] of [
     [-hw + 0.1, -hd + 0.1],
     [-hw + 0.1, hd - 0.1],
@@ -61,7 +61,7 @@ export function buildCoreworks(b, frame) {
     b.part(car, x, 0.55, z, 0.12, 1.1, 0.12, mat.ochre);
   b.part(car, hw - 0.1, 0.55, 0, 0.06, 1.1, D - 0.3, mat.grate);
   b.part(car, hw - 0.06, 0.08, 0, 0.03, 0.16, D - 0.3, mat.hazard);
-  for (const side of [-1, 1]) b.part(car, 0, -0.5, side * (hd - 0.08), W, 0.28, 0.16, mat.ochre);
+  for (const side of [-1, 1]) b.part(car, 0, -0.5, side * (hd - 0.06), W + 0.02, 0.28, 0.16, mat.ochre);
   // Side-hung car frame: two stiles on the guide side, a crosshead, bracing and guide shoes.
   const sx = hw - 0.15,
     sz = hd - 0.15,

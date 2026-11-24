@@ -149,6 +149,47 @@ export class Builder {
       this.collider(px, base + 1.03, pz, 0.14, 2.05, 0.14, { camera: false });
     }
   }
+  // An overhead sign gantry: two posts, a crossbar and the plate hung beneath it.
+  // facing is the plate's rotation; the posts stand along its width.
+  gantry(text, sub, x, z, facing, span, top = 3.2, base = 0, w = 2.3, h = 0.72) {
+    const c = Math.cos(facing),
+      s = Math.sin(facing),
+      m = this.mat;
+    for (const side of [-1, 1]) {
+      const px = x + (side * span * c) / 2,
+        pz = z - (side * span * s) / 2;
+      this.box(px, base + top / 2, pz, 0.16, top, 0.16, m.steel);
+      this.box(px, base + 0.02, pz, 0.34, 0.04, 0.34, m.iron);
+      this.collider(px, base + top / 2, pz, 0.2, top, 0.2, { camera: false });
+      const hx = x + side * (w / 2 - 0.2) * c,
+        hz = z - side * (w / 2 - 0.2) * s;
+      this.turned(hx, base + top - 0.18, hz, 0.04, 0.22, 0.04, facing, m.iron);
+    }
+    this.turned(x, base + top, z, span + 0.24, 0.18, 0.18, facing, m.steel);
+    this.turned(x, base + top + 0.13, z, span + 0.24, 0.06, 0.12, facing, m.ochre);
+    this.plate(text, sub, x, base + top - 0.29 - h / 2, z, w, h, facing);
+  }
+  // Floor trench for cables: flush cover plates with edge angles and ribs, following a path.
+  trench(points, width = 0.56) {
+    const m = this.mat;
+    for (let i = 0; i < points.length - 1; i++) {
+      const [ax, az] = points[i],
+        [bx, bz] = points[i + 1],
+        len = Math.hypot(bx - ax, bz - az),
+        yaw = Math.atan2(bx - ax, bz - az),
+        cx = (ax + bx) / 2,
+        cz = (az + bz) / 2,
+        px = Math.cos(yaw),
+        pz = -Math.sin(yaw);
+      this.turned(cx, 0.006, cz, width, 0.012, len + width, yaw, m.iron);
+      for (const side of [-1, 1]) this.turned(cx + (side * px * width) / 2, 0.01, cz + (side * pz * width) / 2, 0.045, 0.02, len + width, yaw, m.edge);
+      const n = Math.floor(len / 0.8);
+      for (let k = 1; k < n; k++) {
+        const t = k / n;
+        this.turned(ax + (bx - ax) * t, 0.0135, az + (bz - az) * t, width - 0.08, 0.004, 0.035, yaw, m.steel);
+      }
+    }
+  }
   // A straight run of steps from (x0, y0, z0) at the bottom to (x1, y1, z1) at the top.
   flight({ x0, z0, x1, z1, y0, y1, width, steps, m = this.mat.grate, rails = [true, true], fence = [false, false] }) {
     const dx = x1 - x0,

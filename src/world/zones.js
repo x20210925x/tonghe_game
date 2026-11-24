@@ -159,8 +159,6 @@ export function buildSpillway(b) {
   b.rail(-12.72, -122.7, edge, -122.7);
   b.rail(-12.72, 4.4, -4.1, 4.4);
   b.rail(4.1, 4.4, edge, 4.4);
-  b.sign('泄洪廊', '01  /  SPILLWAY', -7, -42);
-  b.sign('斜桥  →  动力间', 'P-02  /  POWER', 9.4, -60.4);
   // A bench by the west rail.
   b.box(-11.6, 0.44, -22, 0.7, 0.08, 2.2, mat.olive, true);
   for (const z of [-21.1, -22.9]) b.box(-11.6, 0.2, z, 0.6, 0.4, 0.08, mat.iron);
@@ -178,7 +176,20 @@ export function buildSpillway(b) {
   const { x, z } = VALVE;
   b.box(x, 0.71, z, 1.61, 1.42, 0.81, mat.enamel, true);
   b.box(x, 1.44, z, 1.71, 0.12, 0.9, mat.steel);
-  for (const dx of [-0.62, 0.62]) b.rod([x + dx, 0.12, z - 0.3], [x + dx, 0.12, GATE.z], 0.086, mat.steel);
+  // Bypass lines leave the back of the housing and drop through the deck into the dam body.
+  for (const dx of [-0.5, 0.5]) {
+    const px = x + dx,
+      back = z - 0.41,
+      drop = z - 0.78;
+    b.rod([px, 0.5, back], [px, 0.5, drop], 0.075, mat.steel);
+    b.rod([px, 0.5, drop], [px, 0, drop], 0.075, mat.steel);
+    b.box(px, 0.5, drop, 0.2, 0.2, 0.2, mat.iron);
+    b.box(px, 0.5, back - 0.02, 0.24, 0.24, 0.04, mat.iron);
+    b.box(px, 0.02, drop, 0.34, 0.04, 0.34, mat.iron);
+    b.box(px, 0.25, drop, 0.2, 0.05, 0.2, mat.iron);
+  }
+  b.collider(x, 0.3, z - 0.78, 1.4, 0.6, 0.3, { camera: false });
+  b.box(x, 0.004, z - 0.78, 1.5, 0.008, 0.55, mat.hazard);
   b.plate('旁通阀', 'P–03    /    BYPASS', x, 1.84, z + 0.09, 1.37, 0.43);
   b.box(x, 1.53, z, 0.16, 0.78, 0.13, mat.iron);
 
@@ -222,37 +233,71 @@ export function buildBridge(b) {
     pz = -dx / len;
   const xyz = (t, off, y) => [ax + dx * t + px * off, y, az + dz * t + pz * off];
   b.collider(ax + dx / 2, -0.06, az + dz / 2, width, 0.12, len, { yaw, surface: 'metal' });
-  for (let i = 0; i < 36; i++) {
-    const [gx, gy, gz] = xyz(0.5, (i / 35 - 0.5) * (width - 0.06), -0.061);
-    b.instance(b.boxGeo, mat.steel, gx, gy, gz, 0.029, 0.122, len, rot);
+  // Concrete abutments carry the diagonal span square onto the deck and the hall,
+  // so the steel grating never lies on top of the concrete.
+  const t0 = 0.07,
+    t1 = 0.93;
+  for (const [a, c] of [
+    [0, t0],
+    [t1, 1],
+  ]) {
+    const [cx, , cz] = xyz((a + c) / 2, 0, 0),
+      [ex, , ez] = xyz(a === 0 ? c : a, 0, 0);
+    b.turned(cx, -0.75, cz, width + 0.5, 1.5, (c - a) * len, yaw, mat.deck);
+    b.turned(ex, -0.022, ez, width + 0.5, 0.06, 0.12, yaw, mat.edge);
   }
-  for (let i = 0; i <= 356; i++) {
-    const [gx, gy, gz] = xyz(i / 356, 0, -0.025);
+  const span = t1 - t0,
+    mid = (t0 + t1) / 2;
+  for (let i = 0; i < 36; i++) {
+    const [gx, gy, gz] = xyz(mid, (i / 35 - 0.5) * (width - 0.06), -0.061);
+    b.instance(b.boxGeo, mat.steel, gx, gy, gz, 0.029, 0.122, len * span, rot);
+  }
+  for (let i = 0; i <= 320; i++) {
+    const [gx, gy, gz] = xyz(t0 + (span * i) / 320, 0, -0.025);
     b.instance(b.boxGeo, mat.iron, gx, gy, gz, width, 0.056, 0.028, rot);
   }
-  for (let i = 0; i <= 26; i++) {
-    const [gx, gy, gz] = xyz(i / 26, 0, -0.23);
+  for (let i = 0; i <= 24; i++) {
+    const [gx, gy, gz] = xyz(t0 + (span * i) / 24, 0, -0.23);
     b.instance(b.boxGeo, mat.steel, gx, gy, gz, width + 0.05, 0.29, 0.14, rot);
   }
   for (const side of [-1, 1]) {
     const off = side * (width / 2 - 0.09);
-    for (const h of [0.57, 1.07]) b.rod(xyz(0, off, h), xyz(1, off, h), h > 0.9 ? 0.038 : 0.022, mat.ochreDark);
-    for (let i = 0; i <= 26; i++) {
-      const [xx, yy, zz] = xyz(i / 26, off, 0.54);
+    const s = bridgeSide(off),
+      [sx, sz, st] = s.at(13.75),
+      [ex, ez, et] = s.at(70.1);
+    // Handrails run continuously from the deck edge to the hall edge on each side.
+    for (const h of [0.57, 1.07]) b.rod(xyz(st, off, h), xyz(et, off, h), h > 0.9 ? 0.038 : 0.022, mat.ochreDark);
+    const posts = Math.ceil(((et - st) * len) / 2.4);
+    for (let i = 0; i <= posts; i++) {
+      const [xx, yy, zz] = xyz(st + ((et - st) * i) / posts, off, 0.54);
       b.box(xx, yy, zz, 0.066, 1.08, 0.066, mat.steel);
     }
-    b.rod(xyz(0, off, -1.34), xyz(1, off, -1.34), 0.126, mat.iron);
-    for (let i = 0; i < 13; i++) b.rod(xyz(i / 13, off, -1.34), xyz((i + 1) / 13, off, -0.23), 0.08, mat.steel);
-    const s = bridgeSide(off),
-      [sx, sz] = s.at(13.75),
-      [ex, ez] = s.at(70.1);
+    b.rod(xyz(t0, off, -1.34), xyz(t1, off, -1.34), 0.126, mat.iron);
+    for (let i = 0; i < 12; i++) b.rod(xyz(t0 + (span * i) / 12, off, -1.34), xyz(t0 + (span * (i + 1)) / 12, off, -0.23), 0.08, mat.steel);
     b.barrier(sx, sz, ex, ez, 0);
   }
+  // Two river piers break the span.
+  for (const t of [1 / 3, 2 / 3]) {
+    const [cx, , cz] = xyz(t, 0, 0);
+    b.box(cx, -7.6, cz, 1.7, 12.4, 1.7, mat.darkCast);
+    b.turned(cx, -1.6, cz, width + 1.4, 0.5, 1.2, yaw, mat.cast);
+    b.box(cx, -6.9, cz, 2.6, 1.0, 2.6, mat.cast);
+  }
+  // Gantry sign over the bridge entrance, facing the deck.
+  const [gx, , gz] = xyz(0.11, 0, 0);
+  b.gantry('斜桥  →  动力间', 'P-02  /  POWER HALL', gx, gz, Math.atan2(-dx / len, -dz / len), width + 0.1, 3.1, 0, 2.3, 0.7);
 }
 
 export function buildPowerHall(b) {
   const { mat } = b;
   b.slab(HALL.x0, HALL.x1, HALL.z0, HALL.z1, 0, 3.1, mat.deck);
+  // The hall slab stands on a grid of piers rising from the reservoir.
+  for (const px of [72.5, 80, 87.5])
+    for (const pz of [-107, -115.5, -124, -132.5]) {
+      b.box(px, -8.1, pz, 1.8, 10, 1.8, mat.darkCast);
+      b.box(px, -3.45, pz, 2.6, 0.7, 2.6, mat.cast);
+      b.box(px, -6.9, pz, 2.6, 0.9, 2.6, mat.cast);
+    }
   // West edge: rails stop at the bridge fences and the catwalk.
   const left = bridgeSide(BRIDGE.width / 2 - 0.09),
     right = bridgeSide(-(BRIDGE.width / 2 - 0.09));
@@ -281,10 +326,29 @@ export function buildPowerHall(b) {
   b.box(77.45, 1.15, -121.26, 0.53, 0.67, 0.11, mat.iron);
   b.box(78.51, 1.05, -121.265, 0.91, 0.95, 0.1, mat.electricPanel);
   b.lamp(79.8, -121.8, 2.65);
-  // Cable trays linking the three isolators to the main cabinet.
-  b.rod([78, 2.6, -122.3], [88.6, 2.6, -122.3], 0.09, mat.iron);
-  b.rod([88.6, 2.6, -122.3], [88.6, 2.6, -105.4], 0.09, mat.iron);
-  b.rod([76.7, 0.08, -122.3], [70.6, 0.08, -131.4], 0.07, mat.iron);
+  // Cables from the main cabinet run in covered floor trenches to each isolator.
+  b.trench([
+    [79.55, -121.85],
+    [83.6, -121.85],
+    [83.6, -105.95],
+    [86.8, -105.95],
+  ]);
+  b.trench([
+    [83.6, -121.85],
+    [83.6, -124.15],
+    [83.9, -124.15],
+  ]);
+  b.trench([
+    [76.45, -121.85],
+    [71.1, -121.85],
+    [71.1, -131.0],
+    [70.2, -131.0],
+  ]);
+  for (const [cx, cz] of [
+    [79.4, -121.85],
+    [76.6, -121.85],
+  ])
+    b.box(cx, 0.22, cz, 0.18, 0.44, 0.5, mat.iron);
 
   // Mezzanine and its stair.
   b.slab(MEZZ.x0, MEZZ.x1, MEZZ.z0, MEZZ.z1, MEZZ.top, 0.35, mat.darkCast);
@@ -306,8 +370,15 @@ export function buildPowerHall(b) {
   b.rail(MEZZ.x0, MEZZ.z0, MEZZ.x1, MEZZ.z0, t);
   b.rail(MEZZ.x1, MEZZ.z0, MEZZ.x1, MEZZ.z1, t);
   b.rail(MEZZ.x0, MEZZ.z1, MEZZ_STAIR.x0, MEZZ.z1, t);
-  b.plate('隔离开关 · 02', 'ISO-02  /  MEZZANINE', 85.9, 1.9, MEZZ_STAIR.zBottom + 0.3, 1.4, 0.44, 0);
-  b.box(85.9, 0.85, MEZZ_STAIR.zBottom + 0.26, 0.08, 1.7, 0.08, mat.iron, { camera: false });
+  b.plate('隔离开关 · 02', 'ISO-02  /  MEZZANINE', 85.25, MEZZ.top - 0.62, MEZZ.z1 + 0.03, 1.3, 0.42, 0);
+  // The mezzanine feed climbs its corner column and runs in a tray under the slab.
+  const colX = MEZZ.x0 + 0.25,
+    colZ = MEZZ.z1 - 0.25,
+    under = MEZZ.top - 0.47;
+  b.rod([colX - 0.24, 0, colZ + 0.1], [colX - 0.24, under, colZ + 0.1], 0.05, mat.iron);
+  for (let y = 0.6; y < under; y += 0.9) b.box(colX - 0.2, y, colZ + 0.1, 0.1, 0.05, 0.12, mat.steel);
+  b.box(colX - 0.24, under, (colZ + 0.1 + MEZZ.z0 + 4) / 2, 0.36, 0.08, Math.abs(colZ + 0.1 - (MEZZ.z0 + 4)), mat.iron);
+  b.box((colX - 0.24 + 88.8) / 2, under, MEZZ.z0 + 4, 88.8 - colX + 0.24, 0.08, 0.36, mat.iron);
 
   // A cantilevered catwalk with one span missing.
   const [g0, g1] = CATWALK.gap;
@@ -316,11 +387,34 @@ export function buildPowerHall(b) {
     [g1, CATWALK.x1],
   ])
     b.slab(a, c, CATWALK.z - cw, CATWALK.z + cw, 0, 0.14, mat.grate, METAL);
-  for (let x = CATWALK.x0 + 0.4; x < CATWALK.x1; x += 2.1) {
-    if (x > g0 - 0.3 && x < g1 + 0.3) continue;
-    b.rod([x, -0.1, CATWALK.z], [x + 1.4, -2.2, CATWALK.z], 0.06, mat.steel);
-    b.box(x, -0.12, CATWALK.z, 0.08, 0.1, CATWALK.width, mat.iron);
+  // Stringers, cross beams and two braced steel bents standing in the reservoir.
+  for (const [a, c] of [
+    [CATWALK.x0, g0],
+    [g1, CATWALK.x1],
+  ]) {
+    for (const side of [-1, 1]) b.box((a + c) / 2, -0.27, CATWALK.z + side * (cw - 0.07), c - a, 0.26, 0.1, mat.steel);
+    for (let x = a + 0.3; x < c; x += 1.5) b.box(x, -0.2, CATWALK.z, 0.08, 0.12, CATWALK.width - 0.1, mat.iron);
   }
+  for (const x of [59.6, 67.2]) {
+    const zA = CATWALK.z - cw + 0.12,
+      zB = CATWALK.z + cw - 0.12;
+    for (const z of [zA, zB]) b.box(x, -4.7, z, 0.2, 8.6, 0.2, mat.steel);
+    b.box(x, -0.47, CATWALK.z, 0.24, 0.16, CATWALK.width, mat.steel);
+    for (const [y0, y1] of [
+      [-0.6, -3.6],
+      [-3.6, -6.6],
+    ]) {
+      b.rod([x, y0, zA], [x, y1, zB], 0.035, mat.steel);
+      b.rod([x, y0, zB], [x, y1, zA], 0.035, mat.steel);
+      b.box(x, y1, CATWALK.z, 0.12, 0.1, CATWALK.width - 0.2, mat.steel);
+    }
+    b.box(x, -6.9, CATWALK.z, 1.4, 1.2, CATWALK.width + 0.5, mat.cast);
+  }
+  // The isolator feed follows the catwalk in a tray under its north edge, across the gap too.
+  b.box((CATWALK.x0 + 0.7 + CATWALK.x1) / 2, -0.32, CATWALK.z + cw + 0.12, CATWALK.x1 - CATWALK.x0 - 0.7, 0.08, 0.26, mat.iron);
+  for (let x = CATWALK.x0 + 1; x < CATWALK.x1; x += 1.5) b.box(x, -0.24, CATWALK.z + cw + 0.05, 0.05, 0.16, 0.14, mat.steel);
+  b.rod([58.4, -0.32, CATWALK.z + cw + 0.12], [58.4, 0.3, CATWALK.z + cw + 0.12], 0.04, mat.iron);
+  b.rod([58.4, 0.3, CATWALK.z + cw + 0.12], [58.25, 0.3, CATWALK.z + 0.42], 0.04, mat.iron);
   b.rod([g0, -0.08, CATWALK.z - 0.5], [g0 + 0.35, -1.1, CATWALK.z - 0.7], 0.035, mat.grate);
   b.rod([g1, -0.08, CATWALK.z + 0.4], [g1 - 0.25, -0.9, CATWALK.z + 0.6], 0.035, mat.grate);
   for (const side of [-1, 1]) {
@@ -330,8 +424,7 @@ export function buildPowerHall(b) {
     b.barrier(CATWALK.x0, z, CATWALK.x1, z, 0);
   }
   b.rail(CATWALK.x0 + 0.05, CATWALK.z - cw, CATWALK.x0 + 0.05, CATWALK.z + cw);
-  b.plate('检修道  ·  断', 'ISO-03  /  JUMP WITH CARE', 70.8, 1.5, CATWALK.z + 1.35, 1.4, 0.44, -Math.PI / 2);
-  b.box(70.8, 0.75, CATWALK.z + 1.35, 0.08, 1.5, 0.08, mat.iron);
+  b.plate('检修道  ·  断', 'ISO-03  /  JUMP WITH CARE', 70.3, 0.78, CATWALK.z + cw + 0.9, 1.3, 0.42, Math.PI / 2);
 }
 
 export function buildTrestle(b) {
@@ -352,9 +445,8 @@ export function buildTrestle(b) {
     b.box(CART.x + off, 0.042, (trackStart + trackEnd) / 2, 0.095, 0.084, trackStart - trackEnd, mat.edge);
   for (let z = trackStart; z > trackEnd; z -= 1.38) b.box(CART.x, 0.022, z, 1.98, 0.044, 0.14, mat.iron);
   b.box(CART.x, 0.35, trackEnd - 0.4, 2.2, 0.7, 0.5, mat.hazard, true);
-  b.plate('检修轨车', 'M-04  /  CORE SHUTTLE', 78.4, 1.74, CART.start + 2, 1.64, 0.52);
-  b.box(78.4, 0.88, CART.start + 1.95, 0.11, 1.76, 0.13, mat.iron, true);
-  b.sign('砼核', 'C-01  /  CONCRETE CORE', 83.9, -133.2);
+  b.plate('检修轨车', 'M-04  /  CORE SHUTTLE', 76.9, 0.78, CART.start + 2.2, 1.3, 0.42, Math.PI / 2);
+  b.gantry('砼核', 'C-01  /  CONCRETE CORE', 81, -138.3, 0, 8.0, 3.6, 0, 2.6, 0.8);
   // Overhead supply to the core: poles, cross-arms, insulators and two sagging conductors.
   const poles = [];
   for (let z = -150; z >= TRESTLE.z0 + 3; z -= 16) poles.push(z);

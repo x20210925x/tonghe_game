@@ -202,15 +202,17 @@ export function buildScenery(b, daylight) {
 
   const hemi = new T.HemisphereLight(0xc8ddf5, 0x6e6252, 0.29);
   scene.add(hemi);
-  const sun = new T.DirectionalLight(0xffdbaf, 1.1);
+  // Both suns carry the full intensity; the cascade patch picks one per fragment.
+  const SUN = 3.55;
+  const sun = new T.DirectionalLight(0xffddb2, SUN);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -52, right: 52, top: 56, bottom: -48, near: 0.5, far: 420 });
+  Object.assign(sun.shadow.camera, { left: -56, right: 56, top: 60, bottom: -52, near: 0.5, far: 420 });
   sun.shadow.normalBias = 0.043;
   sun.shadow.bias = -0.00023;
   sun.shadow.camera.updateProjectionMatrix();
   scene.add(sun, sun.target);
-  const farSun = new T.DirectionalLight(0xffdfb5, 2.45);
+  const farSun = new T.DirectionalLight(0xffddb2, SUN);
   farSun.target.position.set(48, 83, -160);
   farSun.position.copy(farSun.target.position).addScaledVector(SOLAR, 730);
   farSun.castShadow = true;
@@ -234,9 +236,11 @@ export function buildScenery(b, daylight) {
       water.visible = mode !== 'low';
       flatWater.visible = !water.visible;
       fogBanks.forEach((f, i) => (f.visible = mode !== 'low' || i % 3 === 0));
-      sun.shadow.mapSize.set(mode === 'high' ? 3072 : 2048, mode === 'high' ? 3072 : 2048);
+      sun.shadow.mapSize.set(mode === 'high' ? 4096 : 2048, mode === 'high' ? 4096 : 2048);
       sun.shadow.map?.dispose();
       sun.shadow.map = null;
+      // Without shadow maps the cascade patch is inactive, so only one sun may shine.
+      sun.intensity = mode === 'low' ? 0 : SUN;
     },
     update(dt, time, player, camera, inside) {
       indoors = inside > 0.6;

@@ -172,7 +172,7 @@ export function buildMachines(b) {
   mctx.fillRect(0, 0, 64, 64);
   const spray = new T.InstancedMesh(
     new T.PlaneGeometry(1, 1),
-    new T.MeshBasicMaterial({ map: new T.CanvasTexture(mistCanvas), transparent: true, depthWrite: false, opacity: 0.51, side: T.DoubleSide }),
+    new T.MeshBasicMaterial({ map: new T.CanvasTexture(mistCanvas), color: 0xc9d3cf, transparent: true, depthWrite: false, opacity: 0.3, side: T.DoubleSide }),
     22
   );
   const particle = new T.Object3D();
@@ -291,10 +291,13 @@ export function buildMachines(b) {
       falling.material.uniforms.clock.value = time;
       falling.material.uniforms.flow.value = flow;
       if (spray.visible) {
+        // Spray thins out as the camera nears it, so it never fills the view like a white sheet.
+        const near = camera.position.distanceTo(particle.position.set(OUTLET.x, -5, -64));
+        spray.material.opacity = 0.3 * T.MathUtils.smoothstep(near, 10, 32);
         for (let i = 0; i < 22; i++) {
           const age = (time * 0.23 + i * 0.618) % 1,
             side = Math.sin(i * 31.8),
-            size = (1.4 + age * 3.8) * flow;
+            size = (1.2 + age * 2.6) * flow;
           particle.position.set(OUTLET.x + side * (1.8 + age * 3.3), -6.25 + age * 2.5, -64.6 - age * (1.4 + Math.cos(i * 1.9)));
           particle.quaternion.copy(camera.quaternion);
           particle.scale.set(size, size * 0.74, 1);
