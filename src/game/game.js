@@ -51,6 +51,7 @@ export class Game {
       game.world = buildWorld(game.scene, mat, daylight, game.physics);
       game.player = new Player(atlas);
       game.scene.add(game.player.group);
+      game.world.weather.attach(game.player);
       game.quality();
       game.bind();
       game.renderer.compile(game.scene, game.camera);
@@ -92,6 +93,7 @@ export class Game {
     this.frame = 0;
     this.lastTime = 0;
     this.work = new T.Vector3();
+    this.head = new T.Vector3();
     this.mode = 'walk';
     this.hud = {};
     this.moveYaw = null;
@@ -178,6 +180,9 @@ export class Game {
     $('zone-banner').classList.remove('show');
     $('fade').classList.remove('show');
     this.hud = {};
+    // Chapter two is one long night of rain, lit by a helmet lamp.
+    this.world.weather.set(this.chapter === 2 ? 'storm' : 'day', true);
+    this.world.weather.lampOn = this.chapter === 2;
     this.world.refreshShadows();
   }
   // A save only resumes the chapter it was written in; otherwise the chapter starts fresh.
@@ -539,12 +544,19 @@ export class Game {
       brake = inp.z > 0.3;
       if (inp.interact) s.stopping = true;
     } else if (this.mode === 'walk' && inp.interact) this.interact();
+    if (inp.lamp && this.chapter === 2 && this.mode !== 'cinematic') {
+      this.world.weather.lampOn = !this.world.weather.lampOn;
+      this.sound.effect('detent');
+    }
 
     const nearCore = Math.hypot(b.x - 81, b.z - L.CORE.z1) < 24 && b.y < 8;
     for (const e of s.step(dt, { drive, brake, nearCore })) this.onEvent(e);
     const inside = L.insideCore(b.x, b.y, b.z) ? 1 : 0;
     this.inside = T.MathUtils.damp(this.inside ?? inside, inside, 1.4, dt);
     this.world.update(dt, this.time, s, b, this.camera, this.inside);
+    this.head.set(b.x, b.y + 1.62, b.z);
+    for (const e of this.world.weather.update(dt, this.time, this.camera, this.head, this.inside))
+      if (e.type === 'thunder') this.sound.thunder?.(e.delay, e.power);
 
     let landed = 0;
     if (this.mode === 'cart' || this.mode === 'valve') {
@@ -688,12 +700,16 @@ export class Game {
     }
   }
   adapt(dt) {
-    const k = this.inside;
-    this.renderer.toneMappingExposure = 1.04 + 0.3 * k;
-    this.world.setAmbient(1 - 0.68 * k);
-    this.scene.fog.color.copy(this.fogOut).lerp(this.fogIn, k);
-    // The haze settles in the canyon; above the transfer decks the air clears.
-    const outside = 0.00265 - 0.0015 * T.MathUtils.smoothstep(this.camera.position.y, 15, 140);
+    const k = this.inside,
+      w = this.world.weather,
+      storm = w.state.storm;
+    // Night needs a little more exposure; the shaft at night is mostly lamp and dark.
+    this.renderer.toneMappingExposure = (1.04 + 0.3 * k) * (1 + 0.28 * storm);
+    this.world.setAmbient((1 - 0.68 * k) * w.ambient);
+    this.scene.fog.color.copy(w.fog).lerp(this.fogIn, k * (1 - storm));
+    // The haze settles in the canyon; above the transfer decks the air clears. Rain closes it in.
+    const clear = 0.00265 - 0.0015 * T.MathUtils.smoothstep(this.camera.position.y, 15, 140);
+    const outside = clear + (0.0056 - clear) * storm;
     this.scene.fog.density = outside + (0.0078 - outside) * k;
   }
 

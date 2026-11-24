@@ -15,6 +15,7 @@ const MOVE_KEYS = new Set([
   'KeyF',
   'Escape',
   'KeyJ',
+  'KeyL',
   'Tab',
   'AltLeft',
   'AltRight',
@@ -188,6 +189,7 @@ export class Input {
       edge(2, 'KeyE');
       edge(1, 'KeyE');
       edge(9, 'Escape');
+      edge(3, 'KeyL');
       if (buttons[10] || buttons[5]) run = true;
       this.padButtons = buttons;
     }
@@ -205,6 +207,7 @@ export class Input {
       interact: pressed.has('KeyE') || pressed.has('KeyF'),
       pause: pressed.has('Escape'),
       journal: pressed.has('KeyJ') || pressed.has('Tab'),
+      lamp: pressed.has('KeyL'),
     };
   }
 }

@@ -7,6 +7,7 @@ import { buildMachines } from './machines.js';
 import { buildCoreworks } from './coreworks.js';
 import { buildPickups } from './pickups.js';
 import { buildAtmosphere } from '../render/atmosphere.js';
+import { buildWeather } from '../render/weather.js';
 
 // Assembles the structure and returns one update for everything that moves.
 export function buildWorld(scene, mat, daylight, physics) {
@@ -22,6 +23,7 @@ export function buildWorld(scene, mat, daylight, physics) {
   const coreworks = buildCoreworks(b, frame);
   const pickups = buildPickups(b);
   const atmosphere = buildAtmosphere(scene);
+  const weather = buildWeather(scene, mat, scenery);
   b.finish();
 
   // Interior eye adaptation scales indirect light on every lit material at once.
@@ -38,9 +40,11 @@ export function buildWorld(scene, mat, daylight, physics) {
     cart: machines.cart,
     lift: coreworks.car,
     scenery,
+    weather,
     quality(mode) {
       scenery.quality(mode);
       atmosphere.quality(mode);
+      weather.quality(mode);
     },
     setAmbient(k) {
       if (Math.abs(k - ambient) < 0.01) return;
@@ -53,7 +57,7 @@ export function buildWorld(scene, mat, daylight, physics) {
       coreworks.update(dt, time, site, player, inside);
       pickups.update(time, site);
       scenery.update(dt, time, player, camera, inside);
-      atmosphere.update(dt, time, camera, site, inside);
+      atmosphere.update(dt, time, camera, site, inside, weather.state.storm);
       if (machines.shadowsDirty || coreworks.shadowsDirty) {
         scenery.farSun.shadow.needsUpdate = true;
         machines.shadowsDirty = coreworks.shadowsDirty = false;

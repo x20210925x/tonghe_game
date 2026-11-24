@@ -178,6 +178,7 @@ function show(kind, origin = '', arg) {
           ['奔跑', 'Shift'],
           ['跳跃', '空格'],
           ['交互', 'E'],
+          ['头灯（第二章）', 'L'],
           ['巡检档案', 'J'],
           ['暂停', 'Esc'],
         ];
@@ -186,7 +187,7 @@ function show(kind, origin = '', arg) {
       'FIELD MANUAL',
       '操作指南',
       controls.map(([a, b]) => row(a, b)).join('') +
-        '<p class="dialog-note">单击画面锁定鼠标视角，按 Esc 释放。旁通阀用 A / D 调节开度；轨车按住 W 牵引、S 制动。支持手柄：左摇杆移动，右摇杆环视，A 跳跃，X 交互。</p>'
+        '<p class="dialog-note">单击画面锁定鼠标视角，按 Esc 释放。旁通阀用 A / D 调节开度；轨车按住 W 牵引、S 制动。支持手柄：左摇杆移动，右摇杆环视，A 跳跃，X 交互，Y 头灯。</p>'
     );
   } else if (kind === 'settings') {
     dialogBase(

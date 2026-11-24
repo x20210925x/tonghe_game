@@ -200,7 +200,9 @@ export function buildScenery(b, daylight) {
     fogBanks.push(s);
   }
 
-  const hemi = new T.HemisphereLight(0xc8ddf5, 0x6e6252, 0.29);
+  const hemiSky = new T.Color(0xc8ddf5),
+    hemiGround = new T.Color(0x6e6252);
+  const hemi = new T.HemisphereLight(hemiSky, hemiGround, 0.29);
   scene.add(hemi);
   // Both suns carry the full intensity; the cascade patch picks one per fragment.
   const SUN = 3.55;
@@ -225,11 +227,40 @@ export function buildScenery(b, daylight) {
   farSun.shadow.needsUpdate = true;
   scene.add(farSun, farSun.target);
 
+  // Weather tints: the sun becomes thin moonlight in the storm and a low warm light at dawn.
+  // Both cascades always keep the same intensity; lightning lifts them together.
+  const sunDay = new T.Color(0xffddb2),
+    sunNight = new T.Color(0x8ea6c8),
+    sunDawn = new T.Color(0xffb789),
+    mistDay = new T.Color(0xc2c7bd),
+    mistNight = new T.Color(0x2a3138),
+    mist = new T.Color();
+  let sunScale = 1,
+    nearSun = true;
+  const applySun = () => {
+    farSun.intensity = SUN * sunScale;
+    sun.intensity = nearSun ? SUN * sunScale : 0;
+  };
   return {
     sky,
     hemi,
     sun,
     farSun,
+    weather(state, flash, time) {
+      const u = sky.material.uniforms;
+      u.uStorm.value = state.storm;
+      u.uDawn.value = state.dawn;
+      u.uFlash.value = flash;
+      u.uTime.value = time;
+      sun.color.copy(sunDay).lerp(sunDawn, state.dawn).lerp(sunNight, state.storm);
+      farSun.color.copy(sun.color);
+      sunScale = 1 - 0.93 * state.storm - 0.25 * state.dawn * (1 - state.storm) + flash * 0.9;
+      applySun();
+      hemi.color.copy(hemiSky).lerp(sunNight, state.storm * 0.6);
+      hemi.groundColor.copy(hemiGround).multiplyScalar(1 - 0.7 * state.storm);
+      mist.copy(mistDay).lerp(mistNight, state.storm);
+      for (const f of fogBanks) f.material.color.copy(mist);
+    },
     quality(mode) {
       reflect = mode !== 'low';
       pools.material.uniforms.uReflect.value = Number(reflect);
@@ -240,7 +271,8 @@ export function buildScenery(b, daylight) {
       sun.shadow.map?.dispose();
       sun.shadow.map = null;
       // Without shadow maps the cascade patch is inactive, so only one sun may shine.
-      sun.intensity = mode === 'low' ? 0 : SUN;
+      nearSun = mode !== 'low';
+      applySun();
     },
     update(dt, time, player, camera, inside) {
       indoors = inside > 0.6;
