@@ -454,6 +454,11 @@ addEventListener('keydown', (e) => {
     start();
   }
 });
+// A hidden tab is always silent, whatever screen it was left on.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) sound.idle();
+  else if (game?.active) sound.start();
+});
 addEventListener('pagehide', () => {
   if (game?.active) game.save();
 });
