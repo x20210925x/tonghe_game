@@ -12,7 +12,7 @@ import { drawDial } from '../world/machines.js';
 import { CALL_PANELS } from '../world/coreworks.js';
 import { Site, BAND, HOLD_TIME } from './site.js';
 import { objective } from './quest.js';
-import { ARCHIVES } from './lore.js';
+import { ARCHIVES, archivesOf, chapterOf } from './lore.js';
 import * as L from './layout.js';
 
 const $ = (id) => document.getElementById(id);
@@ -30,6 +30,12 @@ const CHECKPOINTS = [
   ['valve', [2, 0, -40, 0]],
   ['door', [0, 0, 0, 0]],
 ];
+// Chapter two's checkpoints, latest first. Its start is the control level.
+const CHECKPOINTS2 = [];
+const spawnOf = (chapter) => {
+  const s = chapter === 2 ? L.CH2_SPAWN : L.SPAWN;
+  return [s.x, s.y, s.z, s.yaw];
+};
 
 export class Game {
   static async create(sound, settings, callbacks) {
@@ -89,6 +95,7 @@ export class Game {
     this.mode = 'walk';
     this.hud = {};
     this.moveYaw = null;
+    this.chapter = 1;
   }
   quality() {
     const q = this.settings.quality;
@@ -137,8 +144,9 @@ export class Game {
   }
 
   // ---------- Lifecycle ----------
-  reset() {
-    this.site.reset();
+  reset(chapter = this.chapter) {
+    this.chapter = chapter === 2 ? 2 : 1;
+    this.site.reset(this.chapter);
     this.mode = 'walk';
     this.time = 0;
     this.handUntil = 0;
@@ -157,9 +165,10 @@ export class Game {
     this.lastTap = -1;
     this.moveYaw = null;
     this.player.setFlying(false);
-    this.player.place(L.SPAWN.x, L.SPAWN.y, L.SPAWN.z, L.SPAWN.yaw);
+    const spawn = spawnOf(this.chapter);
+    this.player.place(...spawn);
     this.player.locked = false;
-    this.rig.yaw = L.SPAWN.yaw;
+    this.rig.yaw = spawn[3];
     this.rig.pitch = -0.06;
     this.rig.frame(null);
     this.rig.blend = 0;
@@ -171,14 +180,15 @@ export class Game {
     this.hud = {};
     this.world.refreshShadows();
   }
-  restore(data) {
-    this.reset();
-    if (!data || data.v !== SAVE_VERSION) return;
-    this.site.restore(data.site || {});
+  // A save only resumes the chapter it was written in; otherwise the chapter starts fresh.
+  restore(data, chapter = data?.chapter ?? 1) {
+    this.reset(chapter);
+    if (!data || data.v !== SAVE_VERSION || (data.chapter ?? 1) !== this.chapter) return;
+    this.site.restore(data.site || {}, this.chapter);
     const p = data.player || {};
     let spot = null;
     if ([p.x, p.y, p.z].every(Number.isFinite) && this.supported(p.x, p.y, p.z)) spot = [p.x, p.y, p.z, Number(p.yaw) || 0];
-    if (!spot) spot = CHECKPOINTS.find(([flag]) => this.site.has(flag))?.[1] || [L.SPAWN.x, 0, L.SPAWN.z, 0];
+    if (!spot) spot = this.checkpoint();
     this.player.place(spot[0], spot[1], spot[2], spot[3]);
     this.rig.yaw = Number.isFinite(data.cam?.yaw) ? data.cam.yaw : spot[3];
     this.rig.pitch = Number.isFinite(data.cam?.pitch) ? clamp(data.cam.pitch, -1.2, 1) : -0.06;
@@ -187,6 +197,10 @@ export class Game {
     this.time = this.site.time;
     this.nextSave = this.time + 3;
     this.world.refreshShadows();
+  }
+  checkpoint() {
+    const list = this.chapter === 2 ? CHECKPOINTS2 : CHECKPOINTS;
+    return list.find(([flag]) => this.site.has(flag))?.[1] || spawnOf(this.chapter);
   }
   supported(x, y, z) {
     const list = this.physics.near(x - 1, x + 1, z - 1, z + 1, []);
@@ -199,6 +213,7 @@ export class Game {
     const spot = last || { x: b.x, y: b.y, z: b.z };
     return {
       v: SAVE_VERSION,
+      chapter: this.chapter,
       site: this.site.snapshot(),
       player: { x: spot.x, y: spot.y, z: spot.z, yaw: this.player.facing },
       cam: { yaw: this.rig.yaw, pitch: this.rig.pitch },
@@ -234,11 +249,15 @@ export class Game {
   }
   stats() {
     return {
+      chapter: this.chapter,
       time: this.site.time,
-      found: this.site.archives.length,
-      total: ARCHIVES.length,
+      found: this.found(),
+      total: archivesOf(this.chapter).length,
       height: this.maxHeight,
     };
+  }
+  found() {
+    return this.site.archives.filter((id) => chapterOf(id) === this.chapter).length;
   }
   freeRoam() {
     this.mode = 'walk';
@@ -268,7 +287,8 @@ export class Game {
         pos: () => [spot.x, spot.base, spot.z],
         r: a.id === 'a1' ? 1.9 : 1.7,
         dy: 2.4,
-        label: () => !s.found(a.id) && (a.id === 'a1' ? '阅读巡检工单' : '查看档案 · ' + a.title),
+        label: () =>
+          s.chapter === chapterOf(a.id) && !s.found(a.id) && (a.id === 'a1' ? '阅读巡检工单' : '查看档案 · ' + a.title),
         act: () => this.readArchive(a.id),
       });
     }
@@ -615,10 +635,7 @@ export class Game {
         const cutoff = this.fallAt - 1.2;
         const spot = [...this.safe].reverse().find((p) => p.t < cutoff) || this.safe[0];
         if (spot) this.player.place(spot.x, spot.y, spot.z, this.player.facing);
-        else {
-          const cp = CHECKPOINTS.find(([f]) => this.site.has(f))?.[1] || [L.SPAWN.x, 0, L.SPAWN.z, 0];
-          this.player.place(cp[0], cp[1], cp[2], cp[3]);
-        }
+        else this.player.place(...this.checkpoint());
         this.rig.snap();
         this.respawned = true;
       }
@@ -691,7 +708,7 @@ export class Game {
       b = this.player.body;
     if (this.time > this.bannerUntil) $('zone-banner').classList.remove('show');
     this.set('height', $('height'), (b.y < 0 ? '-' : '+') + Math.abs(b.y).toFixed(1).padStart(5, '0'));
-    this.set('count', $('archive-count'), `${s.archives.length}/${ARCHIVES.length}`);
+    this.set('count', $('archive-count'), `${this.found()}/${archivesOf(this.chapter).length}`);
     const obj = objective(s, b);
     if (this.hud.obj !== obj.text) {
       const fresh = this.hud.objId !== obj.id && this.hud.objId !== undefined;

@@ -2,6 +2,8 @@
 // Y is up. Facing -Z is "forward" along the inspection route.
 
 export const SPAWN = { x: 0, y: 0, z: 13.4, yaw: 0 };
+// Chapter two opens on the control level, beside the console the first shift restarted.
+export const CH2_SPAWN = { x: 70.4, y: 96, z: -288.2, yaw: 0.9 };
 
 export const BOOTH = { x0: -4, x1: 4, z0: 4, z1: 17, desk: { x: -3.05, y: 1.02, z: 10.7 } };
 export const DOOR = { x: 0, z: 4.1, width: 2.24, height: 2.42, slide: -2.31 };

@@ -92,3 +92,6 @@ export const ARCHIVES = [
 ];
 
 export const archiveById = (id) => ARCHIVES.find((a) => a.id === id);
+// Each chapter keeps its own set of archives; entries without a chapter belong to the first.
+export const chapterOf = (id) => archiveById(id)?.chapter ?? 1;
+export const archivesOf = (chapter) => ARCHIVES.filter((a) => (a.chapter ?? 1) === chapter);

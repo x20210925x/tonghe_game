@@ -6,7 +6,8 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 export const pressureAt = (opening) => 1.44 - opening * 1.22;
 export const BAND = [0.6, 0.72];
 export const HOLD_TIME = 2.4;
-export const FLAGS = [
+// Chapter one's story flags. Chapter two opens with all of them set.
+export const CH1_FLAGS = [
   'workorder',
   'door',
   'valve',
@@ -21,12 +22,14 @@ export const FLAGS = [
   'crown',
   'record',
 ];
+export const FLAGS = [...CH1_FLAGS];
 
 export class Site {
   constructor() {
     this.reset();
   }
-  reset() {
+  reset(chapter = this.chapter ?? 1) {
+    this.chapter = chapter === 2 ? 2 : 1;
     this.flags = {};
     this.archives = [];
     this.time = 0;
@@ -50,6 +53,22 @@ export class Site {
     this.restartAt = -1;
     this.powerAt = -1;
     this.autoLift = false;
+    if (this.chapter === 2) this.carryOver();
+  }
+  // Chapter two begins where the first shift ended: power on, the core restarted, the lift
+  // waiting at the control level and every gate and door left open.
+  carryOver() {
+    for (const f of CH1_FLAGS) this.flags[f] = true;
+    this.opening = 0.64;
+    this.pressure = pressureAt(this.opening);
+    this.gate = 6.8;
+    this.door = 1;
+    this.coreDoor = 1;
+    this.cartZ = CART.end;
+    this.liftY = this.liftFrom = this.liftTo = LEVEL.L2;
+    this.powerAt = -100;
+    this.restartAt = -100;
+    this.autoLift = true;
   }
   has(flag) {
     return !!this.flags[flag];
@@ -74,6 +93,7 @@ export class Site {
   }
   snapshot() {
     return {
+      chapter: this.chapter,
       flags: { ...this.flags },
       archives: [...this.archives],
       opening: this.opening,
@@ -82,11 +102,11 @@ export class Site {
       time: this.time,
     };
   }
-  restore(data = {}) {
-    this.reset();
+  restore(data = {}, chapter = data.chapter ?? 1) {
+    this.reset(chapter);
     for (const f of FLAGS) if (data.flags?.[f] === true) this.flags[f] = true;
     if (Array.isArray(data.archives))
-      this.archives = data.archives.filter((a) => typeof a === 'string' && /^a\d$/.test(a));
+      this.archives = data.archives.filter((a) => typeof a === 'string' && /^a\d+$/.test(a));
     this.time = Number.isFinite(data.time) ? Math.max(0, data.time) : 0;
     if (Number.isFinite(data.opening)) this.opening = clamp(data.opening, 0, 1);
     if (this.flags.valve) this.opening = clamp(this.opening, 0.59, 0.68);
@@ -95,7 +115,7 @@ export class Site {
     this.door = this.flags.door ? 1 : 0;
     this.coreDoor = this.flags.core ? 1 : 0;
     if (Number.isFinite(data.cartZ)) this.cartZ = clamp(data.cartZ, CART.end, CART.start);
-    const stop = LIFT.stops.includes(data.liftY) ? data.liftY : 0;
+    const stop = LIFT.stops.includes(data.liftY) ? data.liftY : this.liftY;
     this.liftY = stop;
     if (!this.flags.main) this.liftY = 0;
     else if (this.flags.stall && !this.flags.console && stop !== LEVEL.L1) this.liftY = LEVEL.L1;

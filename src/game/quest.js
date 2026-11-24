@@ -111,8 +111,13 @@ export const STEPS = [
   },
 ];
 
+// Chapter two: the flood. Filled in as its mechanics land.
+export const STEPS2 = [];
+
+export const stepsOf = (site) => (site.chapter === 2 ? STEPS2 : STEPS);
+
 export function currentStep(site) {
-  return STEPS.find((step) => !step.done(site)) || null;
+  return stepsOf(site).find((step) => !step.done(site)) || null;
 }
 
 export function objective(site, player) {

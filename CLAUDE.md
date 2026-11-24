@@ -19,7 +19,7 @@
 
 | 路径 | 作用 |
 | --- | --- |
-| `main.js` | 菜单、对话框（暂停 / 设置 / 档案 / 日志 / 结尾）、存档 `concrete.v2.save`、设置 `concrete.settings`、`window.__concrete.game` 调试入口 |
+| `main.js` | 菜单、章节选择、对话框（暂停 / 设置 / 档案 / 日志 / 结尾）、存档（每章一个：`concrete.v2.save` / `concrete.v2.save.ch2`）、通关进度 `concrete.progress`、设置 `concrete.settings`、`window.__concrete.game` 调试入口 |
 | `game/game.js` | 主循环与模式（walk / valve / cart / cinematic）、交互列表 `makeInteractables()`、坠落重生、HUD、提示、开发者模式（传送、飞行）、自由视角 |
 | `game/site.js` | 剧情旗标 + 所有机械状态（阀门、闸门、轨车、升降台），纯逻辑可测 |
 | `game/quest.js` | `STEPS`：按顺序的目标列表，`objective()` 取第一个未完成的 |
@@ -62,7 +62,9 @@ g.input.keys.add('KeyW'); g.input.pressed.add('KeyE');  // 模拟按键
 ```
 
 - 截图会触发可见性变化并自动暂停（正常行为）。
-- 验证完一定要：关闭游戏音频 / 关闭面板标签（`game.pause(true)` 不会静音，曾导致用户电脑一直响背景音），并清掉测试存档 `localStorage.removeItem('concrete.v2.save')`、`concrete.settings`，视口重置为 desktop。
+- 验证时先在 `concrete.settings` 里设 `muted: true` 再进游戏。
+- 验证完一定要：关闭游戏音频 / 关闭面板标签（`game.pause(true)` 不会静音，曾导致用户电脑一直响背景音），并清掉所有 `concrete.` 开头的 localStorage 键（两章存档、`concrete.progress`、`concrete.settings`），视口重置为 desktop。
+- 章节：`g.restore(save, chapter)`；第二章开局 = 第一章旗标全开、升降台在 96、出生在主控层（`CH2_SPAWN`）。
 
 ## 开发者模式（设置里开启）
 

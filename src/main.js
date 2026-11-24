@@ -1,10 +1,24 @@
 import { Soundscape } from './engine/audio.js';
-import { ARCHIVES, archiveById } from './game/lore.js';
+import { archiveById, archivesOf, chapterOf } from './game/lore.js';
 import { DEV_SPOTS } from './game/layout.js';
 
 const $ = (id) => document.getElementById(id);
-const SAVE_KEY = 'concrete.v2.save',
+// One save slot per chapter. Chapter one keeps the original key so old saves still load.
+const SAVE_KEYS = { 1: 'concrete.v2.save', 2: 'concrete.v2.save.ch2' },
+  PROGRESS_KEY = 'concrete.progress',
   SETTINGS_KEY = 'concrete.settings';
+const CHAPTERS = {
+  1: {
+    code: 'CH. 01',
+    synopsis: '穿过沉默的泄洪廊，恢复动力，<br />攀上一百三十米高的混凝土之心，把它重新唤醒。',
+    loading: '正在进入值班室',
+  },
+  2: {
+    code: 'CH. 02',
+    synopsis: '入夜，暴雨压在上游水库上。<br />沿北坝栈桥，赶在洪水漫顶之前打开三孔泄洪闸。',
+    loading: '正在进入第二章 · 汛期',
+  },
+};
 const read = (key, fallback) => {
   try {
     return JSON.parse(localStorage.getItem(key)) ?? fallback;
@@ -36,8 +50,13 @@ const defaults = {
 };
 const settings = { ...defaults, ...read(SETTINGS_KEY, {}) };
 if (!['low', 'balanced', 'high'].includes(settings.quality)) settings.quality = 'balanced';
-let save = read(SAVE_KEY, null);
-if (save?.v !== 2) save = null;
+const slot = (data, chapter) => (data?.v === 2 && (data.chapter ?? 1) === chapter ? data : null);
+const saves = { 1: slot(read(SAVE_KEYS[1], null), 1), 2: slot(read(SAVE_KEYS[2], null), 2) };
+// Cleared chapters live apart from the saves, so restarting chapter one never relocks chapter two.
+const progress = { chapter: 1, ...read(PROGRESS_KEY, {}) };
+if (!Array.isArray(progress.cleared)) progress.cleared = [];
+const unlocked = (ch) => ch === 1 || progress.cleared.includes(ch - 1);
+let selected = unlocked(progress.chapter) ? progress.chapter : 1;
 let game = null,
   journalOrigin = '',
   starting = false,
@@ -54,15 +73,32 @@ function syncSettings() {
   $('audio-button').setAttribute('aria-pressed', String(!settings.muted));
   $('audio-button').title = settings.muted ? '开启声音' : '关闭声音';
 }
-function setSave(data) {
-  save = data;
-  write(SAVE_KEY, data);
+function setSave(chapter, data) {
+  saves[chapter] = data;
+  write(SAVE_KEYS[chapter], data);
+  refreshTitle();
+}
+function refreshTitle() {
+  const save = saves[selected];
   $('start-label').textContent = save ? '继续巡检' : '开始巡检';
   $('new-run').hidden = !save;
-  const found = save?.site?.archives?.length || 0;
-  $('save-note').textContent = save ? `档案 ${found}/${ARCHIVES.length}` : '';
+  const found = (save?.site?.archives || []).filter((id) => chapterOf(id) === selected).length;
+  $('save-note').textContent = save ? `${CHAPTERS[selected].code} · 档案 ${found}/${archivesOf(selected).length}` : '';
+  $('synopsis').innerHTML = CHAPTERS[selected].synopsis;
+  $('title-screen').classList.toggle('ch2', selected === 2);
+  for (const el of $('chapter-pick').querySelectorAll('button')) {
+    const ch = Number(el.dataset.ch);
+    el.disabled = !unlocked(ch);
+    el.setAttribute('aria-pressed', String(ch === selected));
+  }
 }
-setSave(save);
+function selectChapter(ch) {
+  if (!unlocked(ch)) return;
+  selected = progress.chapter = ch;
+  write(PROGRESS_KEY, progress);
+  refreshTitle();
+}
+refreshTitle();
 syncSettings();
 if (matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints > 1) $('app').classList.add('touch');
 settings.pointerLock = !touch();
@@ -244,14 +280,14 @@ function show(kind, origin = '', arg) {
     };
   } else if (kind === 'pause') {
     game.pause();
-    const found = game.site.archives.length;
+    const found = game.found();
     dialogBase(
       kind,
       'FIELD SESSION',
       '巡检暂停',
       '<div class="action-row">' +
         button('resume', '继续巡检', true) +
-        button('pause-journal', `巡检档案 <span class="count">${found}/${ARCHIVES.length}</span>`) +
+        button('pause-journal', `巡检档案 <span class="count">${found}/${archivesOf(game.chapter).length}</span>`) +
         button('pause-guide', '操作指南') +
         button('pause-settings', '系统设置') +
         button('restart', '从头开始') +
@@ -267,13 +303,14 @@ function show(kind, origin = '', arg) {
   } else if (kind === 'journal') {
     if (game?.active) game.pause(true);
     journalOrigin = origin;
-    const found = new Set(game.site.archives);
+    const found = new Set(game.site.archives),
+      list = archivesOf(game.chapter);
     dialogBase(
       kind,
-      'ARCHIVE INDEX',
-      `巡检档案  ${found.size}/${ARCHIVES.length}`,
+      'ARCHIVE INDEX  ·  ' + CHAPTERS[game.chapter].code,
+      `巡检档案  ${game.found()}/${list.length}`,
       '<ol class="journal">' +
-        ARCHIVES.map((a) =>
+        list.map((a) =>
           found.has(a.id)
             ? `<li><button data-id="${a.id}"><span class="mono">${a.code}</span><b>${escape(a.title)}</b><i>${escape(a.where)}</i></button></li>`
             : `<li class="missing"><span class="mono">— — —</span><b>未找到</b><i>${escape(a.where)}</i></li>`
@@ -304,7 +341,7 @@ function show(kind, origin = '', arg) {
         '</div>'
     );
     $('confirm-restart').onclick = () => {
-      setSave(null);
+      setSave(game.chapter, null);
       game.reset();
       resume();
     };
@@ -320,7 +357,7 @@ function show(kind, origin = '', arg) {
         '</div>'
     );
     $('confirm-new').onclick = () => {
-      setSave(null);
+      setSave(selected, null);
       hideDialog();
       start();
     };
@@ -350,21 +387,37 @@ function toTitle() {
   $('title-screen').hidden = false;
   $('start').focus({ preventScroll: true });
 }
+const ENDINGS = {
+  1: { title: '巡检完成', lead: '砼核已重启。光沿着井壁一路亮上来。', end: '冠顶观测台 +132 m' },
+  2: { title: '汛期已过', lead: '三孔闸全开，水位退回警戒线下。雨停了，天边发白。', end: '北坝坝顶 +096 m' },
+};
 function finished(stats) {
+  if (!progress.cleared.includes(stats.chapter)) progress.cleared.push(stats.chapter);
+  write(PROGRESS_KEY, progress);
+  const ending = ENDINGS[stats.chapter],
+    next = CHAPTERS[stats.chapter + 1] ? stats.chapter + 1 : 0;
   dialogBase(
     'finished',
-    'INSPECTION LOG',
-    '巡检完成',
-    '<p class="dialog-note lead">砼核已重启。光沿着井壁一路亮上来。</p>' +
-      row('终点', '冠顶观测台 +132 m') +
+    'INSPECTION LOG  ·  ' + CHAPTERS[stats.chapter].code,
+    ending.title,
+    `<p class="dialog-note lead">${ending.lead}</p>` +
+      row('终点', ending.end) +
       row('巡检用时', clock(stats.time)) +
       row('巡检档案', `${stats.found} / ${stats.total}`) +
       '<div class="action-row">' +
-      button('free-roam', '继续漫游', true) +
+      (next ? button('next-chapter', '进入第二章 · 汛期', true) : '') +
+      button('free-roam', '继续漫游', !next) +
       button('return-title', '返回主菜单') +
       '</div>',
     'field-record'
   );
+  if (next)
+    $('next-chapter').onclick = () => {
+      selectChapter(next);
+      hideDialog();
+      game.restore(saves[next], next);
+      game.input.lock();
+    };
   $('free-roam').onclick = () => {
     hideDialog();
     game.freeRoam();
@@ -376,7 +429,8 @@ async function start() {
   if (starting || panel) return;
   starting = true;
   $('loading').hidden = false;
-  $('loading-label').textContent = save ? '正在恢复巡检' : '正在进入值班室';
+  const save = saves[selected];
+  $('loading-label').textContent = save ? '正在恢复巡检' : CHAPTERS[selected].loading;
   try {
     sound.start();
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -385,12 +439,12 @@ async function start() {
       game = await Game.create(sound, settings, {
         pause: () => show('pause'),
         journal: () => show('journal'),
-        save: setSave,
+        save: (data) => setSave(data.chapter ?? 1, data),
         complete: finished,
         archive: (id) => show('archive', '', id),
       });
     }
-    game.restore(save);
+    game.restore(save, selected);
     $('title-screen').hidden = true;
     $('play-screen').hidden = false;
     game.resize();
@@ -416,6 +470,7 @@ async function start() {
   }
 }
 $('start').onclick = start;
+for (const el of $('chapter-pick').querySelectorAll('button')) el.onclick = () => selectChapter(Number(el.dataset.ch));
 $('new-run').onclick = () => show('new-run');
 $('guide').onclick = () => show('guide');
 $('settings').onclick = () => show('settings');
