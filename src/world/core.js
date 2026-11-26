@@ -1,11 +1,11 @@
-import { CORE, SHAFT, CORE_DOOR, LIFT, LEVEL, FLIGHTS, L1, L2, CROWN_BRIDGE } from '../game/layout.js';
+import { CORE, SHAFT, CORE_DOOR, LIFT, LEVEL, FLIGHTS, L1, L2, CROWN_BRIDGE, NORTH_DOOR } from '../game/layout.js';
 
 const METAL = { surface: 'metal' };
 export const EAST_SLITS = [-276, -285, -294];
 
 // A wall slab along one axis with rectangular openings cut through it.
 // axis 'x': runs along x between a0..a1, thickness over z t0..t1. axis 'z' swaps the roles.
-function cutWall(b, axis, t0, t1, a0, a1, y0, y1, openings, m) {
+export function cutWall(b, axis, t0, t1, a0, a1, y0, y1, openings, m) {
   const cuts = [a0, a1];
   for (const o of openings) cuts.push(Math.max(a0, Math.min(a1, o.a0)), Math.max(a0, Math.min(a1, o.a1)));
   const sorted = [...new Set(cuts)].sort((p, q) => p - q);
@@ -51,7 +51,12 @@ export function buildCore(b) {
     slit(92, 10, 124),
     slit(81, 14, 124),
   ], mat.darkCast);
-  cutWall(b, 'x', z0, S.z0, x0, x1, base, wallTop, [slit(72, 104, 126), slit(90, 104, 126)], mat.darkCast);
+  // North wall: two high slits and, at +96, the door to the storm bridge (chapter two).
+  cutWall(b, 'x', z0, S.z0, x0, x1, base, wallTop, [
+    slit(72, 104, 126),
+    slit(90, 104, 126),
+    { a0: NORTH_DOOR.x0, a1: NORTH_DOOR.x1, y0: NORTH_DOOR.y, y1: NORTH_DOOR.y + NORTH_DOOR.height },
+  ], mat.darkCast);
   cutWall(b, 'z', x0, S.x0, S.z0, S.z1, base, wallTop, [slit(-277, 100, 126), slit(-291, 102, 126)], mat.darkCast);
   cutWall(b, 'z', S.x1, x1, S.z0, S.z1, base, wallTop, EAST_SLITS.map((c) => slit(c, 8, 126, 3)), mat.darkCast);
 

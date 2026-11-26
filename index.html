@@ -60,7 +60,7 @@
           <div class="genre"><span class="signal"></span>第三人称巨构探索</div>
           <h1>砼核</h1>
           <div class="english-title" lang="en">CONCRETE CORE</div>
-          <p class="synopsis">穿过沉默的泄洪廊，恢复动力，<br />攀上一百三十米高的混凝土之心，把它重新唤醒。</p>
+          <p class="synopsis" id="synopsis">穿过沉默的泄洪廊，恢复动力，<br />攀上一百三十米高的混凝土之心，把它重新唤醒。</p>
           <button id="start" class="start-button">
             <span class="play-triangle"></span><span id="start-label">开始巡检</span><kbd>ENTER <b>↵</b></kbd>
           </button>
@@ -96,8 +96,14 @@
           <div class="sector-label"><span>CORE C-01</span><b></b>砼核</div>
         </aside>
         <footer class="menu-footer">
-          <div class="chapter">
-            <span class="chapter-tick"></span><span class="mono">CH. 01</span><i></i><strong>巨构之下</strong>
+          <div class="chapter" id="chapter-pick" role="group" aria-label="选择章节">
+            <button data-ch="1" aria-pressed="true">
+              <span class="chapter-tick"></span><span class="mono">CH. 01</span><i></i><strong>巨构之下</strong>
+            </button>
+            <button data-ch="2" aria-pressed="false" disabled>
+              <span class="chapter-tick"></span><span class="mono">CH. 02</span><i></i><strong>汛期</strong
+              ><small class="lock">完成第一章后解锁</small>
+            </button>
           </div>
           <div class="headphone-tip"><svg><use href="#icon-headphones" /></svg>佩戴耳机体验空间声场</div>
         </footer>
@@ -151,6 +157,23 @@
             <button id="traction"><kbd>W</kbd> 牵引</button><button id="brake"><kbd>S</kbd> 制动</button>
           </div>
         </section>
+        <section id="pump-panel" class="machine-panel" aria-label="3 号闸手压泵" hidden>
+          <div class="instrument-title"><span>G–03</span><strong>液压手压泵</strong></div>
+          <div class="cart-readings">
+            <div><small>系统压力</small><output id="pump-pressure">0%</output></div>
+            <div><small>闸门开度</small><output id="pump-gate">0%</output></div>
+          </div>
+          <div class="hold-track pump-track"><i id="pump-fill"></i><b></b></div>
+          <div id="pump-state"></div>
+          <div class="instrument-controls">
+            <button id="pump-stroke"><kbd>E</kbd> 压泵（按住或连按）</button>
+          </div>
+          <p class="panel-note">移动键离开</p>
+        </section>
+        <div id="water-gauge" hidden>
+          <div><span>库水位</span><b id="water-level">92.00</b><i>/ 坝顶 96.00 m</i></div>
+          <div class="water-bar"><i id="water-fill"></i></div>
+        </div>
         <div id="zone-banner" aria-live="polite"></div>
         <div id="touch-pad"><i></i></div>
         <button id="touch-run" aria-label="切换奔跑">奔跑</button>

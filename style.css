@@ -336,6 +336,47 @@ h1 {
   font-size: 13px;
   letter-spacing: 0.14em;
 }
+#chapter-pick {
+  gap: clamp(18px, 2.4vw, 40px);
+}
+#chapter-pick button {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: none;
+  border: 0;
+  padding: 8px 0;
+  opacity: 0.66;
+  transition: opacity 0.18s;
+}
+#chapter-pick button[aria-pressed='true'] {
+  opacity: 1;
+}
+#chapter-pick button[aria-pressed='false']:not(:disabled):hover {
+  opacity: 0.86;
+}
+#chapter-pick button[aria-pressed='false'] .chapter-tick {
+  background: var(--line);
+}
+#chapter-pick button:disabled {
+  cursor: default;
+  opacity: 0.36;
+}
+#chapter-pick .lock {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+#chapter-pick button:not(:disabled) .lock {
+  display: none;
+}
+/* Chapter two is a night of rain: the key art drops into blue dark. */
+.keyart {
+  transition: filter 0.6s;
+}
+#title-screen.ch2 .keyart {
+  filter: brightness(0.5) saturate(0.5) sepia(0.25) hue-rotate(168deg);
+}
 .headphone-tip {
   gap: 9px;
   font-size: 12px;
@@ -756,6 +797,9 @@ h2 {
   .chapter {
     gap: 8px;
   }
+  #chapter-pick .lock {
+    display: none;
+  }
   .chapter strong {
     font-size: 11px;
   }
@@ -976,6 +1020,88 @@ h2 {
   font: 11px var(--mono);
   color: #ffb883;
   margin-right: 3px;
+}
+/* Chapter two: the hand pump and the reservoir gauge. */
+.pump-track {
+  position: relative;
+  height: 6px;
+}
+.pump-track i {
+  background: #d89a5a;
+}
+.pump-track b {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 62%;
+  width: 2px;
+  background: #f1f1e9;
+}
+#pump-state,
+.panel-note {
+  margin-top: 9px;
+  color: #c2ccbc;
+  font: 11px var(--mono);
+}
+.panel-note {
+  margin: 8px 0 0;
+  opacity: 0.7;
+}
+#water-gauge {
+  position: absolute;
+  right: var(--edge);
+  bottom: 62px;
+  width: 210px;
+  font: 12px var(--mono);
+  color: #e8e8dc;
+  text-align: right;
+  filter: drop-shadow(0 1px 4px #181c18);
+  pointer-events: none;
+}
+#water-gauge span {
+  color: #8fc0d0;
+  margin-right: 8px;
+}
+#water-gauge b {
+  font-weight: normal;
+  font-size: 15px;
+}
+#water-gauge i {
+  font-style: normal;
+  opacity: 0.7;
+  margin-left: 5px;
+}
+.water-bar {
+  margin-top: 6px;
+  height: 4px;
+  background: #ffffff1c;
+  overflow: hidden;
+}
+.water-bar i {
+  display: block;
+  height: 100%;
+  background: #6aa9bd;
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: background 0.4s;
+}
+#water-gauge.high b,
+#water-gauge.high span {
+  color: #ff9c6b;
+}
+#water-gauge.high .water-bar i {
+  background: #e2643a;
+}
+#water-gauge.falling span {
+  color: #8fd0a4;
+}
+#hint.alert {
+  border-color: #ff8445aa;
+  color: #ffd2b3;
+}
+.cinematic #water-gauge {
+  opacity: 0;
+  transition: opacity 1.2s;
 }
 #pressure-stability {
   margin-top: 9px;

@@ -1,5 +1,8 @@
 import * as T from '../../assets/three.module.min.js';
 
+// Shared rain wetness, 0 dry to 1 soaked: darker concrete, smoother tops, streaked walls.
+export const WET = { value: 0 };
+
 export async function makeMaterials(renderer) {
   const loader = new T.TextureLoader();
   async function scanSet(name) {
@@ -53,6 +56,7 @@ export async function makeMaterials(renderer) {
         reliefMap: { value: relief },
         surfaceMap: { value: surface },
         weatherMap: { value: scan },
+        uWet: WET,
       });
       s.vertexShader =
         'varying vec3 vCastPos;\n#ifdef RIB_SURFACE\nvarying vec2 vRibMetric;\n#endif\n' +
@@ -69,7 +73,7 @@ export async function makeMaterials(renderer) {
         #endif`
         );
       s.fragmentShader =
-        '#ifdef RIB_SURFACE\nvarying vec2 vRibMetric;\n#endif\nvarying vec3 vCastPos;uniform sampler2D reliefMap,surfaceMap,weatherMap;\n' +
+        '#ifdef RIB_SURFACE\nvarying vec2 vRibMetric;\n#endif\nvarying vec3 vCastPos;uniform sampler2D reliefMap,surfaceMap,weatherMap;uniform float uWet;\n' +
         s.fragmentShader.replace(
           '#include <map_fragment>',
           `
@@ -101,13 +105,17 @@ export async function makeMaterials(renderer) {
         shade*=1.-${floor ? '0.' : '0.55'}*holes*detail;
         float damp=1.-smoothstep(-5.,2.5+3.*wash.r,vCastPos.y);
         diffuseColor.rgb*=patina*shade*(1.-damp*.31)*(.71+.29*properties.r);
+        float up=smoothstep(.55,.9,wn.y);
+        float soak=uWet*(.62+.38*up+.25*weather);
+        diffuseColor.rgb*=1.-.36*soak;
       `
         );
       s.fragmentShader = s.fragmentShader
         .replace(
           '#include <roughnessmap_fragment>',
           `#include <roughnessmap_fragment>
-        roughnessFactor=clamp(roughnessFactor*(.54+.58*properties.g)-damp*.09,.17,.98);`
+        roughnessFactor=clamp(roughnessFactor*(.54+.58*properties.g)-damp*.09,.17,.98);
+        roughnessFactor=mix(roughnessFactor,max(.1,roughnessFactor*(.32+.25*properties.g)),soak*(.45+.55*up));`
         )
         .replace(
           '#include <normal_fragment_maps>',

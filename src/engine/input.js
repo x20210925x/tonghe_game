@@ -15,6 +15,7 @@ const MOVE_KEYS = new Set([
   'KeyF',
   'Escape',
   'KeyJ',
+  'KeyL',
   'Tab',
   'AltLeft',
   'AltRight',
@@ -188,7 +189,10 @@ export class Input {
       edge(2, 'KeyE');
       edge(1, 'KeyE');
       edge(9, 'Escape');
+      edge(3, 'KeyL');
       if (buttons[10] || buttons[5]) run = true;
+      if (buttons[2] || buttons[1]) this.padUse = true;
+      else this.padUse = false;
       this.padButtons = buttons;
     }
     const sens = this.settings.sensitivity * 0.0036;
@@ -203,8 +207,11 @@ export class Input {
       freeLook: k.has('AltLeft') || k.has('AltRight'),
       down: k.has('ShiftLeft') || k.has('ShiftRight'),
       interact: pressed.has('KeyE') || pressed.has('KeyF'),
+      // Held, for machines worked by holding the key.
+      use: k.has('KeyE') || k.has('KeyF') || !!this.padUse,
       pause: pressed.has('Escape'),
       journal: pressed.has('KeyJ') || pressed.has('Tab'),
+      lamp: pressed.has('KeyL'),
     };
   }
 }

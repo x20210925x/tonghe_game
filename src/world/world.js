@@ -5,8 +5,10 @@ import { buildBooth, buildSpillway, buildBridge, buildPowerHall, buildTrestle } 
 import { buildCore } from './core.js';
 import { buildMachines } from './machines.js';
 import { buildCoreworks } from './coreworks.js';
+import { buildDam } from './dam.js';
 import { buildPickups } from './pickups.js';
 import { buildAtmosphere } from '../render/atmosphere.js';
+import { buildWeather } from '../render/weather.js';
 
 // Assembles the structure and returns one update for everything that moves.
 export function buildWorld(scene, mat, daylight, physics) {
@@ -20,8 +22,10 @@ export function buildWorld(scene, mat, daylight, physics) {
   const frame = buildCore(b);
   const machines = buildMachines(b);
   const coreworks = buildCoreworks(b, frame);
+  const dam = buildDam(b);
   const pickups = buildPickups(b);
   const atmosphere = buildAtmosphere(scene);
+  const weather = buildWeather(scene, mat, scenery);
   b.finish();
 
   // Interior eye adaptation scales indirect light on every lit material at once.
@@ -37,10 +41,13 @@ export function buildWorld(scene, mat, daylight, physics) {
     dial: machines.dial,
     cart: machines.cart,
     lift: coreworks.car,
+    dam,
     scenery,
+    weather,
     quality(mode) {
       scenery.quality(mode);
       atmosphere.quality(mode);
+      weather.quality(mode);
     },
     setAmbient(k) {
       if (Math.abs(k - ambient) < 0.01) return;
@@ -51,12 +58,13 @@ export function buildWorld(scene, mat, daylight, physics) {
     update(dt, time, site, player, camera, inside) {
       machines.update(dt, time, site, camera);
       coreworks.update(dt, time, site, player, inside);
+      dam.update(dt, time, site, camera, weather.ambient, player);
       pickups.update(time, site);
       scenery.update(dt, time, player, camera, inside);
-      atmosphere.update(dt, time, camera, site, inside);
-      if (machines.shadowsDirty || coreworks.shadowsDirty) {
+      atmosphere.update(dt, time, camera, site, inside, weather.state.storm);
+      if (machines.shadowsDirty || coreworks.shadowsDirty || dam.shadowsDirty) {
         scenery.farSun.shadow.needsUpdate = true;
-        machines.shadowsDirty = coreworks.shadowsDirty = false;
+        machines.shadowsDirty = coreworks.shadowsDirty = dam.shadowsDirty = false;
       }
     },
     refreshShadows() {

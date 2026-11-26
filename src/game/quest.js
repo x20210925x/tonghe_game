@@ -17,6 +17,17 @@ import {
   CONSOLE,
   RECORD,
   FLIGHTS,
+  NORTH_DOOR,
+  STORM_BRIDGE,
+  REFUGE,
+  GATES,
+  ROAD,
+  PANELS,
+  GALLERY,
+  JUNCTION,
+  HOUSE,
+  SHAFT_ROOM,
+  GAUGE,
 } from './layout.js';
 
 const liftPanel = (site) => [LIFT.cx + LIFT_PANEL.dx, site.liftY + 1.3, LIFT.cz + LIFT_PANEL.dz];
@@ -111,8 +122,77 @@ export const STEPS = [
   },
 ];
 
+// Chapter two: the flood.
+const refugeAhead = (p) => {
+  const next = STORM_BRIDGE.piers.find((z) => z < p.z - 2);
+  return next === undefined ? [GATES[0].door - 6, 97.2, ROAD.z1 - 2] : [REFUGE.x0 + 2.2, 97.2, next];
+};
+const panel = (spot, y = 97.3) => [spot.x + Math.sin(spot.face) * 0.5, y, spot.z + Math.cos(spot.face) * 0.5];
+const pct = (v) => Math.round(v * 100) + '%';
+export const STEPS2 = [
+  {
+    id: 'ndoor',
+    done: (s) => s.has('ndoor'),
+    text: () => '打开主控层北门，前往北坝',
+    target: () => [(NORTH_DOOR.x0 + NORTH_DOOR.x1) / 2, 97.3, -301.6],
+  },
+  {
+    id: 'crossing',
+    done: (s) => s.has('crest'),
+    text: () => '穿过风雨栈桥 · 阵风来时躲进避风处',
+    target: (s, p) => refugeAhead(p),
+  },
+  {
+    id: 'power',
+    done: (s) => s.has('power'),
+    text: () => '1 号闸机房 · 合上机房电源',
+    target: () => panel(PANELS.power),
+  },
+  {
+    id: 'g1',
+    done: (s) => s.has('g1'),
+    text: () => '开启 1 号闸泄洪',
+    target: () => panel(PANELS.g1),
+  },
+  {
+    id: 'junction',
+    done: (s) => s.has('junction'),
+    text: (s, p) => (p.y > 92 ? '2 号闸无电 · 经竖井下到检修廊' : '复位进水跳闸的接线箱'),
+    target: (s, p) =>
+      p.y > 92 && !(p.x > GALLERY.x0 && p.x < GALLERY.shaftX1 && p.z < HOUSE.z1)
+        ? [SHAFT_ROOM.door, 97.3, HOUSE.z1 - 0.8]
+        : [JUNCTION.x, JUNCTION.y + 1.5, JUNCTION.z + 0.4],
+  },
+  {
+    id: 'g2',
+    done: (s) => s.has('g2'),
+    text: () => '回到机房，开启 2 号闸',
+    target: (s, p) => (p.y < 92 ? [SHAFT_ROOM.door, 97.3, GALLERY.z1] : panel(PANELS.g2)),
+  },
+  {
+    id: 'g3',
+    done: (s) => s.has('g3'),
+    text: (s) => (s.gates.g3 > 0 || s.atPump ? `3 号闸液压不足 · 手动泵压开闸 ${pct(s.gates.g3)}` : '3 号闸液压不足 · 手动泵压开闸'),
+    target: (s) => (s.atPump ? null : panel(PANELS.pump)),
+  },
+  {
+    id: 'recede',
+    done: (s) => s.has('recede'),
+    text: () => '三孔全开 · 等待水位回落',
+    target: () => null,
+  },
+  {
+    id: 'record',
+    done: (s) => s.has('logged'),
+    text: () => '到坝顶西端水尺站记录水情',
+    target: () => [GAUGE.x, 97.3, GAUGE.z],
+  },
+];
+
+export const stepsOf = (site) => (site.chapter === 2 ? STEPS2 : STEPS);
+
 export function currentStep(site) {
-  return STEPS.find((step) => !step.done(site)) || null;
+  return stepsOf(site).find((step) => !step.done(site)) || null;
 }
 
 export function objective(site, player) {

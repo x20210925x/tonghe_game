@@ -438,5 +438,5 @@ export function makeWorker(atlas) {
     }
     return pace > 0.15 && air < 0.5 && Math.floor(phase * 2) !== previous;
   }
-  return { group, animate };
+  return { group, animate, head };
 }

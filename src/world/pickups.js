@@ -1,5 +1,6 @@
 import * as T from '../../assets/three.module.min.js';
 import { ARCHIVE_SPOTS } from '../game/layout.js';
+import { chapterOf } from '../game/lore.js';
 
 function glowTexture() {
   const c = document.createElement('canvas');
@@ -47,7 +48,8 @@ export function buildPickups(b) {
     items,
     update(time, site) {
       for (const [id, it] of Object.entries(items)) {
-        const found = site.found(id);
+        // Another chapter's archives stay on their stands, unlit and closed to reading.
+        const found = site.found(id) || chapterOf(id) !== site.chapter;
         it.glow.visible = !found;
         if (!found) {
           const p = 0.5 + 0.5 * Math.sin(time * 2.2 + it.pos[0]);

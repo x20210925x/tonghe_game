@@ -66,8 +66,9 @@ export class Player {
     this.backing = back;
     const top = (intent.run ? RUN * (back ? 0.6 : 1) : WALK * (back ? 0.72 : 1)) * this.speedScale;
     const control = b.grounded ? 13 : 3.2;
-    b.vx = T.MathUtils.damp(b.vx, wx * top, control, dt);
-    b.vz = T.MathUtils.damp(b.vz, wz * top, control, dt);
+    // Wind adds to the speed the inspector tries to hold: running into a gust holds ground.
+    b.vx = T.MathUtils.damp(b.vx, wx * top + (intent.windX || 0), control, dt);
+    b.vz = T.MathUtils.damp(b.vz, wz * top + (intent.windZ || 0), control, dt);
     if (intent.jump) this.jumpBuffer = BUFFER;
     else this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     this.sinceGround = b.grounded ? 0 : this.sinceGround + dt;
@@ -86,8 +87,11 @@ export class Player {
       carryZ = ground && ground.dynamic ? ground.dz : 0;
     const moved = Math.hypot(b.x - ox - carryX, b.z - oz - carryZ) / Math.max(dt, 1e-4);
     this.speed = T.MathUtils.damp(this.speed, moved * (back ? -1 : 1), 18, dt);
-    if (Math.hypot(b.vx, b.vz) > 0.25 && moved > 0.08) {
-      const want = back ? Math.atan2(b.vx, b.vz) : Math.atan2(-b.vx, -b.vz),
+    // Face where the inspector walks, not where the wind shoves.
+    const fx = b.vx - (intent.windX || 0),
+      fz = b.vz - (intent.windZ || 0);
+    if (Math.hypot(fx, fz) > 0.25 && moved > 0.08) {
+      const want = back ? Math.atan2(fx, fz) : Math.atan2(-fx, -fz),
         diff = want - this.facing;
       this.facing += Math.atan2(Math.sin(diff), Math.cos(diff)) * (1 - Math.exp(-(b.grounded ? 13 : 5) * dt));
     }

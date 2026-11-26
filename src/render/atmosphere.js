@@ -48,10 +48,11 @@ export function buildAtmosphere(scene) {
       enabled = mode !== 'low';
       dust.visible = enabled;
     },
-    update(dt, time, camera, site, inside) {
+    update(dt, time, camera, site, inside, storm = 0) {
       dust.material.uniforms.uTime.value = time;
       dust.material.uniforms.uCenter.value.copy(camera.position);
-      dust.material.uniforms.uAmount.value = 0.22 + inside * 0.55;
+      // Rain clears the air outside; the shaft keeps its dust, dimmer at night.
+      dust.material.uniforms.uAmount.value = (0.22 * (1 - storm) + inside * 0.55) * (1 - 0.6 * storm);
     },
   };
 }
